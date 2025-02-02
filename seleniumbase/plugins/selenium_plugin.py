@@ -1,5 +1,6 @@
 """Selenium Plugin for SeleniumBase tests that run with pynose / nosetests"""
 import sys
+from contextlib import suppress
 from nose.plugins import Plugin
 from seleniumbase import config as sb_config
 from seleniumbase.config import settings
@@ -40,11 +41,14 @@ class SeleniumBrowser(Plugin):
     --binary-location=PATH  (Set path of the Chromium browser binary to use.)
     --driver-version=VER  (Set the chromedriver or uc_driver version to use.)
     --sjw  (Skip JS Waits for readyState to be "complete" or Angular to load.)
+    --wfa  (Wait for AngularJS to be done loading after specific web actions.)
     --pls=PLS  (Set pageLoadStrategy on Chrome: "normal", "eager", or "none".)
-    --headless  (Run tests in headless mode. The default arg on Linux OS.)
-    --headless2  (Use the new headless mode, which supports extensions.)
+    --headless  (The default headless mode. Linux uses this mode by default.)
+    --headless1  (Use Chrome's old headless mode. Fast, but has limitations.)
+    --headless2  (Use Chrome's new headless mode, which supports extensions.)
     --headed  (Run tests in headed/GUI mode on Linux OS, where not default.)
     --xvfb  (Run tests using the Xvfb virtual display server on Linux OS.)
+    --xvfb-metrics=STRING  (Set Xvfb display size on Linux: "Width,Height".)
     --locale=LOCALE_CODE  (Set the Language Locale Code for the web browser.)
     --interval=SECONDS  (The autoplay interval for presentations & tour steps)
     --start-page=URL  (The starting URL for the web browser when tests begin.)
@@ -60,10 +64,12 @@ class SeleniumBrowser(Plugin):
     --block-images  (Block images from loading during tests.)
     --do-not-track  (Indicate to websites that you don't want to be tracked.)
     --verify-delay=SECONDS  (The delay before MasterQA verification checks.)
+    --ee / --esc-end  (Lets the user end the current test via the ESC key.)
     --recorder  (Enables the Recorder for turning browser actions into code.)
     --rec-behave  (Same as Recorder Mode, but also generates behave-gherkin.)
     --rec-sleep  (If the Recorder is enabled, also records self.sleep calls.)
     --rec-print  (If the Recorder is enabled, prints output after tests end.)
+    --disable-cookies  (Disable Cookies on websites. Pages might break!)
     --disable-js  (Disable JavaScript on websites. Pages might break!)
     --disable-csp  (Disable the Content Security Policy of websites.)
     --disable-ws  (Disable Web Security on Chromium-based browsers.)
@@ -80,6 +86,7 @@ class SeleniumBrowser(Plugin):
     --dark  (Enable Chrome's Dark mode.)
     --devtools  (Open Chrome's DevTools when the browser opens.)
     --disable-beforeunload  (Disable the "beforeunload" event on Chrome.)
+    --window-position=X,Y  (Set the browser's starting window position.)
     --window-size=WIDTH,HEIGHT  (Set the browser's starting window size.)
     --maximize  (Start tests with the browser window maximized.)
     --screenshot  (Save a screenshot at the end of each test.)
@@ -138,6 +145,20 @@ class SeleniumBrowser(Plugin):
             help="""Shortcut for --browser=safari""",
         )
         parser.addoption(
+            "--cft",
+            action="store_true",
+            dest="use_cft",
+            default=False,
+            help="""Shortcut for using `Chrome for Testing`""",
+        )
+        parser.addoption(
+            "--chs",
+            action="store_true",
+            dest="use_chs",
+            default=False,
+            help="""Shortcut for using `Chrome-Headless-Shell`""",
+        )
+        parser.addoption(
             "--cap_file",
             "--cap-file",
             action="store",
@@ -176,6 +197,17 @@ class SeleniumBrowser(Plugin):
             help="""Skip all calls to wait_for_ready_state_complete()
                     and wait_for_angularjs(), which are part of many
                     SeleniumBase methods for improving reliability.""",
+        )
+        parser.addoption(
+            "--wfa",
+            "--wait_for_angularjs",
+            "--wait-for-angularjs",
+            action="store_true",
+            dest="wait_for_angularjs",
+            default=False,
+            help="""Add waiting for AngularJS. (The default setting
+                    was changed to no longer wait for AngularJS to
+                    finish loading as an extra JavaScript call.)""",
         )
         parser.addoption(
             "--protocol",
@@ -379,6 +411,7 @@ class SeleniumBrowser(Plugin):
         parser.addoption(
             "--binary_location",
             "--binary-location",
+            "--bl",
             action="store",
             dest="binary_location",
             default=None,
@@ -422,6 +455,15 @@ class SeleniumBrowser(Plugin):
                 Default: False on Mac/Windows. True on Linux.""",
         )
         parser.addoption(
+            "--headless1",
+            action="store_true",
+            dest="headless1",
+            default=False,
+            help="""This option activates the old headless mode,
+                    which is faster, but has limitations.
+                    (May be phased out by Chrome in the future.)""",
+        )
+        parser.addoption(
             "--headless2",
             action="store_true",
             dest="headless2",
@@ -451,6 +493,17 @@ class SeleniumBrowser(Plugin):
                     When using "--xvfb", the "--headless" option
                     will no longer be enabled by default on Linux.
                     Default: False. (Linux-ONLY!)""",
+        )
+        parser.addoption(
+            "--xvfb-metrics",
+            "--xvfb_metrics",
+            action="store",
+            dest="xvfb_metrics",
+            default=None,
+            help="""Customize the Xvfb metrics (Width,Height) on Linux.
+                    Format: A comma-separated string with the 2 values.
+                    Examples: "1920,1080" or "1366,768" or "1024,768".
+                    Default: None. (None: "1366,768". Min: "1024,768".)""",
         )
         parser.addoption(
             "--locale_code",
@@ -614,6 +667,16 @@ class SeleniumBrowser(Plugin):
                     before each MasterQA verification pop-up.""",
         )
         parser.addoption(
+            "--esc-end",
+            "--esc_end",
+            "--ee",
+            action="store_true",
+            dest="esc_end",
+            default=False,
+            help="""End the current test early via the ESC key.
+                    The test will be marked as skipped.""",
+        )
+        parser.addoption(
             "--recorder",
             "--record",
             "--rec",
@@ -664,6 +727,15 @@ class SeleniumBrowser(Plugin):
                     Warning: Most web pages will stop working!""",
         )
         parser.addoption(
+            "--disable_cookies",
+            "--disable-cookies",
+            action="store_true",
+            dest="disable_cookies",
+            default=False,
+            help="""The option to disable Cookies on web pages.
+                    Warning: Several pages may stop working!""",
+        )
+        parser.addoption(
             "--disable_csp",
             "--disable-csp",
             "--no_csp",
@@ -682,6 +754,7 @@ class SeleniumBrowser(Plugin):
         parser.addoption(
             "--disable_ws",
             "--disable-ws",
+            "--dws",
             "--disable-web-security",
             action="store_true",
             dest="disable_ws",
@@ -864,6 +937,17 @@ class SeleniumBrowser(Plugin):
                     This is already the default Firefox option.""",
         )
         parser.addoption(
+            "--window-position",
+            "--window_position",
+            action="store",
+            dest="window_position",
+            default=None,
+            help="""The option to set the starting window x,y position.
+                    Format: A comma-separated string with the 2 values.
+                    Example: "55,66"
+                    Default: None. (Will use default values if None)""",
+        )
+        parser.addoption(
             "--window-size",
             "--window_size",
             action="store",
@@ -961,6 +1045,7 @@ class SeleniumBrowser(Plugin):
         browser = self.options.browser
         test.test.browser = browser
         test.test.headless = None
+        test.test.headless1 = None
         test.test.headless2 = None
         # As a shortcut, you can use "--edge" instead of "--browser=edge", etc,
         # but you can only specify one default browser. (Default: chrome)
@@ -1037,6 +1122,29 @@ class SeleniumBrowser(Plugin):
                 '\n  (Your browser choice was: "%s")\n' % browser
             )
             raise Exception(message)
+        window_position = self.options.window_position
+        if window_position:
+            if window_position.count(",") != 1:
+                message = (
+                    '\n\n  window_position expects an "x,y" string!'
+                    '\n  (Your input was: "%s")\n' % window_position
+                )
+                raise Exception(message)
+            window_position = window_position.replace(" ", "")
+            win_x = None
+            win_y = None
+            try:
+                win_x = int(window_position.split(",")[0])
+                win_y = int(window_position.split(",")[1])
+            except Exception:
+                message = (
+                    '\n\n  Expecting integer values for "x,y"!'
+                    '\n  (window_position input was: "%s")\n'
+                    % window_position
+                )
+                raise Exception(message)
+            settings.WINDOW_START_X = win_x
+            settings.WINDOW_START_Y = win_y
         window_size = self.options.window_size
         if window_size:
             if window_size.count(",") != 1:
@@ -1076,9 +1184,13 @@ class SeleniumBrowser(Plugin):
         test.test.cap_file = self.options.cap_file
         test.test.cap_string = self.options.cap_string
         test.test.headless = self.options.headless
+        test.test.headless1 = self.options.headless1
+        if test.test.headless1:
+            test.test.headless = True
         test.test.headless2 = self.options.headless2
         if test.test.headless and test.test.browser == "safari":
             test.test.headless = False  # Safari doesn't use headless
+            test.test.headless1 = False
         if test.test.headless2 and test.test.browser == "firefox":
             test.test.headless2 = False  # Only for Chromium browsers
             test.test.headless = True  # Firefox has regular headless
@@ -1089,11 +1201,14 @@ class SeleniumBrowser(Plugin):
             self.options.headless2 = False
         test.test.headed = self.options.headed
         test.test.xvfb = self.options.xvfb
+        test.test.xvfb_metrics = self.options.xvfb_metrics
         test.test.locale_code = self.options.locale_code
         test.test.interval = self.options.interval
         test.test.start_page = self.options.start_page
         if self.options.skip_js_waits:
             settings.SKIP_JS_WAITS = True
+        if self.options.wait_for_angularjs:
+            settings.WAIT_FOR_ANGULARJS = True
         test.test.protocol = self.options.protocol
         test.test.servername = self.options.servername
         test.test.port = self.options.port
@@ -1102,6 +1217,18 @@ class SeleniumBrowser(Plugin):
         test.test.extension_dir = self.options.extension_dir
         test.test.disable_features = self.options.disable_features
         test.test.binary_location = self.options.binary_location
+        if self.options.use_cft and not test.test.binary_location:
+            test.test.binary_location = "cft"
+        elif self.options.use_chs and not test.test.binary_location:
+            test.test.binary_location = "chs"
+        if (
+            test.test.binary_location
+            and test.test.binary_location.lower() == "chs"
+            and test.test.browser == "chrome"
+        ):
+            test.test.headless = True
+            test.test.headless1 = False
+            test.test.headless2 = False
         test.test.driver_version = self.options.driver_version
         test.test.page_load_strategy = self.options.page_load_strategy
         test.test.chromium_arg = self.options.chromium_arg
@@ -1126,6 +1253,7 @@ class SeleniumBrowser(Plugin):
         test.test.block_images = self.options.block_images
         test.test.do_not_track = self.options.do_not_track
         test.test.verify_delay = self.options.verify_delay  # MasterQA
+        test.test.esc_end = self.options.esc_end
         test.test.recorder_mode = self.options.recorder_mode
         test.test.recorder_ext = self.options.recorder_mode  # Again
         test.test.rec_behave = self.options.rec_behave
@@ -1140,6 +1268,7 @@ class SeleniumBrowser(Plugin):
         elif self.options.record_sleep:
             test.test.recorder_mode = True
             test.test.recorder_ext = True
+        test.test.disable_cookies = self.options.disable_cookies
         test.test.disable_js = self.options.disable_js
         test.test.disable_csp = self.options.disable_csp
         test.test.disable_ws = self.options.disable_ws
@@ -1166,6 +1295,7 @@ class SeleniumBrowser(Plugin):
         test.test.dark_mode = self.options.dark_mode
         test.test.devtools = self.options.devtools
         test.test._disable_beforeunload = self.options._disable_beforeunload
+        test.test.window_position = self.options.window_position
         test.test.window_size = self.options.window_size
         test.test.maximize_option = self.options.maximize_option
         if self.options.save_screenshot and self.options.no_screenshot:
@@ -1192,15 +1322,19 @@ class SeleniumBrowser(Plugin):
             and not self.options.headless2
             and not self.options.xvfb
         ):
-            print(
-                "(Linux uses --headless by default. "
-                "To override, use --headed / --gui. "
-                "For Xvfb mode instead, use --xvfb. "
-                "Or you can hide this info by using "
-                "--headless / --headless2.)"
-            )
-            self.options.headless = True
-            test.test.headless = True
+            if not self.options.undetectable:
+                print(
+                    "(Linux uses --headless by default. "
+                    "To override, use --headed / --gui. "
+                    "For Xvfb mode instead, use --xvfb. "
+                    "Or you can hide this info by using "
+                    "--headless / --headless2 / --uc.)"
+                )
+                self.options.headless = True
+                test.test.headless = True
+            else:
+                self.options.xvfb = True
+                test.test.xvfb = True
         if self.options.use_wire and self.options.undetectable:
             print(
                 "\n"
@@ -1214,8 +1348,10 @@ class SeleniumBrowser(Plugin):
         # Recorder Mode can still optimize scripts in --headless2 mode.
         if self.options.recorder_mode and self.options.headless:
             self.options.headless = False
+            self.options.headless1 = False
             self.options.headless2 = True
             test.test.headless = False
+            test.test.headless1 = False
             test.test.headless2 = True
         if not self.options.headless and not self.options.headless2:
             self.options.headed = True
@@ -1229,7 +1365,7 @@ class SeleniumBrowser(Plugin):
         ):
             width = settings.HEADLESS_START_WIDTH
             height = settings.HEADLESS_START_HEIGHT
-            try:
+            with suppress(Exception):
                 from sbvirtualdisplay import Display
 
                 self._xvfb_display = Display(visible=0, size=(width, height))
@@ -1237,8 +1373,6 @@ class SeleniumBrowser(Plugin):
                 sb_config._virtual_display = self._xvfb_display
                 self.headless_active = True
                 sb_config.headless_active = True
-            except Exception:
-                pass
         sb_config._is_timeout_changed = False
         sb_config._SMALL_TIMEOUT = settings.SMALL_TIMEOUT
         sb_config._LARGE_TIMEOUT = settings.LARGE_TIMEOUT
@@ -1271,7 +1405,7 @@ class SeleniumBrowser(Plugin):
             pass
         except Exception:
             pass
-        try:
+        with suppress(Exception):
             if (
                 hasattr(self, "_xvfb_display")
                 and self._xvfb_display
@@ -1288,5 +1422,3 @@ class SeleniumBrowser(Plugin):
             ):
                 sb_config._virtual_display.stop()
                 sb_config._virtual_display = None
-        except Exception:
-            pass

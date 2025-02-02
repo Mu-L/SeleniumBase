@@ -2,7 +2,7 @@
 
 ## [<img src="https://seleniumbase.github.io/img/logo6.png" title="SeleniumBase" width="32">](https://github.com/seleniumbase/SeleniumBase/) pytest options for SeleniumBase
 
-🎛️ SeleniumBase's [pytest plugin](https://github.com/seleniumbase/SeleniumBase/blob/master/seleniumbase/plugins/pytest_plugin.py) lets you customize test runs from the CLI (Command-Line Interface), which adds options for setting/enabling the browser type, Dashboard Mode, Demo Mode, Headless Mode, Mobile Mode, Multi-threading Mode, Recorder Mode, reuse-session mode, proxy config, user agent config, browser extensions, html-report mode, and more.
+🎛️ SeleniumBase's [pytest plugin](https://github.com/seleniumbase/SeleniumBase/blob/master/seleniumbase/plugins/pytest_plugin.py) lets you customize test runs from the CLI (Command-Line Interface), which adds options for setting/enabling the browser type, Dashboard Mode, Demo Mode, Headless Mode, Mobile Mode, Multi-threading Mode, Recorder Mode, UC Mode (stealth), reuse-session mode, Proxy Mode, and more.
 
 🎛️ Here are some examples of configuring tests, which can be run from the [examples/](https://github.com/seleniumbase/SeleniumBase/tree/master/examples) folder:
 
@@ -10,8 +10,8 @@
 # Run a test in Chrome (default browser)
 pytest my_first_test.py
 
-# Run a test in Firefox
-pytest test_swag_labs.py --firefox
+# Run a test in Edge
+pytest test_swag_labs.py --edge
 
 # Run a test in Demo Mode (highlight assertions)
 pytest test_demo_site.py --demo
@@ -31,23 +31,26 @@ pytest test_suite.py --rs --crumbs
 # Create a real-time dashboard for test results
 pytest test_suite.py --dashboard
 
-# Create a pytest html report after tests are done
+# Create a pytest-html report after tests are done
 pytest test_suite.py --html=report.html
-
-# Activate Debug Mode on failures ("c" to continue)
-pytest test_fail.py --pdb -s
 
 # Rerun failing tests more times
 pytest test_suite.py --reruns=1
 
-# Activate Debug Mode as the test begins ("n": next. "c": continue)
+# Activate Debug Mode at the start ("n": next. "c": continue)
 pytest test_null.py --trace -s
+
+# Activate Debug Mode on failures ("n": next. "c": continue)
+pytest test_fail.py --pdb -s
+
+# Activate Debug Mode at the end ("n": next. "c": continue)
+pytest test_fail.py --ftrace -s
 
 # Activate Recorder/Debug Mode as the test begins ("c" to continue)
 pytest test_null.py --recorder --trace -s
 
 # Pass extra data into tests (retrieve by calling self.data)
-pytest my_first_test.py --data="ABC,DEF"
+pytest my_first_test.py --data="ABC"
 
 # Run tests on a local Selenium Grid
 pytest test_suite.py --server="127.0.0.1"
@@ -73,7 +76,7 @@ pytest test_swag_labs.py --mobile
 # Run mobile tests specifying CSS Width, CSS Height, and Pixel-Ratio
 pytest test_swag_labs.py --mobile --metrics="360,640,2"
 
-# Run a test with an option to evade bot-detection services
+# Run tests using UC Mode to evade bot-detection services
 pytest verify_undetected.py --uc
 
 # Run tests while changing SeleniumBase default settings
@@ -142,11 +145,14 @@ pytest my_first_test.py --settings-file=custom_settings.py
 --binary-location=PATH  # (Set path of the Chromium browser binary to use.)
 --driver-version=VER  # (Set the chromedriver or uc_driver version to use.)
 --sjw  # (Skip JS Waits for readyState to be "complete" or Angular to load.)
+--wfa  # (Wait for AngularJS to be done loading after specific web actions.)
 --pls=PLS  # (Set pageLoadStrategy on Chrome: "normal", "eager", or "none".)
---headless  # (Run tests in headless mode. The default arg on Linux OS.)
---headless2  # (Use the new headless mode, which supports extensions.)
+--headless  # (The default headless mode. Linux uses this mode by default.)
+--headless1  # (Use Chrome's old headless mode. Fast, but has limitations.)
+--headless2  # (Use Chrome's new headless mode, which supports extensions.)
 --headed  # (Run tests in headed/GUI mode on Linux OS, where not default.)
 --xvfb  # (Run tests using the Xvfb virtual display server on Linux OS.)
+--xvfb-metrics=STRING  # (Set Xvfb display size on Linux: "Width,Height".)
 --locale=LOCALE_CODE  # (Set the Language Locale Code for the web browser.)
 --interval=SECONDS  # (The autoplay interval for presentations & tour steps)
 --start-page=URL  # (The starting URL for the web browser when tests begin.)
@@ -164,10 +170,12 @@ pytest my_first_test.py --settings-file=custom_settings.py
 --block-images  # (Block images from loading during tests.)
 --do-not-track  # (Indicate to websites that you don't want to be tracked.)
 --verify-delay=SECONDS  # (The delay before MasterQA verification checks.)
+--ee | --esc-end  # (Lets the user end the current test via the ESC key.)
 --recorder  # (Enables the Recorder for turning browser actions into code.)
 --rec-behave  # (Same as Recorder Mode, but also generates behave-gherkin.)
 --rec-sleep  # (If the Recorder is enabled, also records self.sleep calls.)
 --rec-print  # (If the Recorder is enabled, prints output after tests end.)
+--disable-cookies  # (Disable Cookies on websites. Pages might break!)
 --disable-js  # (Disable JavaScript on websites. Pages might break!)
 --disable-csp  # (Disable the Content Security Policy of websites.)
 --disable-ws  # (Disable Web Security on Chromium-based browsers.)
@@ -190,6 +198,7 @@ pytest my_first_test.py --settings-file=custom_settings.py
 --rcs | --reuse-class-session  # (Reuse session for tests in class.)
 --crumbs  # (Delete all cookies between tests reusing a session.)
 --disable-beforeunload  # (Disable the "beforeunload" event on Chrome.)
+--window-position=X,Y  # (Set the browser's starting window position.)
 --window-size=WIDTH,HEIGHT  # (Set the browser's starting window size.)
 --maximize  # (Start tests with the browser window maximized.)
 --screenshot  # (Save a screenshot at the end of each test.)
@@ -229,7 +238,7 @@ pytest test_suite.py
 
 <h3><img src="https://seleniumbase.github.io/img/green_logo.png" title="SeleniumBase" width="32" /> Demo Mode:</h3>
 
-🔵 If any test is moving too fast for your eyes to see what's going on, you can run it in **Demo Mode** by adding ``--demo`` on the command line, which pauses the browser briefly between actions, highlights page elements being acted on, and lets you know what test assertions are happening in real time:
+🔵 If any test is moving too fast for your eyes to see what's going on, you can run it in **Demo Mode** by adding ``--demo`` on the command line, which pauses the browser briefly between actions, highlights page elements being acted on, and lets you know what test assertions are happening in real-time:
 
 ```bash
 pytest my_first_test.py --demo
@@ -326,7 +335,25 @@ class Test:
 pytest --headless -n8 --dashboard --html=report.html -v --rs --crumbs
 ```
 
-The above not only runs tests in parallel processes, but it also tells tests in the same process to share the same browser session, runs the tests in headless mode, displays the full name of each test on a separate line, creates a realtime dashboard of the test results, and creates a full report after all tests complete.
+The above not only runs tests in parallel processes, but it also tells tests in the same process to share the same browser session, runs the tests in headless mode, displays the full name of each test on a separate line, creates a real-time dashboard of the test results, and creates a full report after all tests complete.
+
+--------
+
+🎛️ For extra speed, run your tests using `chrome-headless-shell`:
+
+First, get `chrome-headless-shell` if you don't already have it:
+
+```bash
+sbase get chs
+```
+
+Then, run scripts with `--chs` / `chs=True`:
+
+```bash
+pytest --chs -n8 --dashboard --html=report.html -v --rs
+```
+
+That makes your tests run very quickly in headless mode.
 
 --------
 
@@ -378,7 +405,7 @@ pytest test_suite.py --dashboard --html=report.html
 
 <img src="https://seleniumbase.github.io/cdn/img/dash_report.jpg" alt="Dashboard Pytest HTML Report" title="Dashboard Pytest HTML Report" width="520" />
 
-If viewing pytest html reports in [Jenkins](https://www.jenkins.io/), you may need to [configure Jenkins settings](https://stackoverflow.com/a/46197356) for the html to render correctly. This is due to [Jenkins CSP changes](https://www.jenkins.io/doc/book/system-administration/security/configuring-content-security-policy/).
+If viewing pytest html reports in [Jenkins](https://www.jenkins.io/), you may need to [configure Jenkins settings](https://stackoverflow.com/a/46197356/7058266) for the html to render correctly. This is due to [Jenkins CSP changes](https://www.jenkins.io/doc/book/system-administration/security/configuring-content-security-policy/).
 
 You can also use ``--junit-xml=report.xml`` to get an xml report instead. Jenkins can use this file to display better reporting for your tests.
 
@@ -440,6 +467,47 @@ Note that different options could lead to the same result. (Eg. If you have the 
 
 --------
 
+<h3><img src="https://seleniumbase.github.io/img/green_logo.png" title="SeleniumBase" width="32" /> Setting the binary location:</h3>
+
+🔵 By default, SeleniumBase uses the browser binary detected on the System PATH.
+
+🎛️ To change this default behavior, you can use:
+
+```bash
+pytest --binary-location=PATH
+```
+
+The `PATH` in `--binary-location=PATH` / `--bl=PATH` can be:
+* A relative or exact path to the browser binary.
+* `"cft"` as a special option for `Chrome for Testing`.
+* `"chs"` as a special option for `Chrome-Headless-Shell`.
+
+Before using the `"cft"` / `"chs"` options, call `sbase get cft` / `sbase get chs` in order to download the specified binaries into the `seleniumbase/drivers` folder. The default version is the latest stable version on https://googlechromelabs.github.io/chrome-for-testing/. You can change that by specifying the arg as a parameter. (Eg. `sbase get cft 131`, `sbase get chs 132`, etc.)
+
+With the `SB()` and `Driver()` formats, the binary location is set via the `binary_location` parameter.
+
+--------
+
+🎛️ To use the special `Chrome for Testing` binary:
+
+```bash
+sbase get cft
+```
+
+Then, run scripts with `--cft` / `cft=True`:
+
+```bash
+pytest --cft -n8 --dashboard --html=report.html -v --rs --headless
+```
+
+--------
+
+(Note that `--chs` / `chs=True` activates `Chrome-Headless-Shell`)
+
+`Chrome-Headless-Shell` is the fastest version of Chrome, designed specifically for headless automation. (This mode is NOT compatible with UC Mode!)
+
+--------
+
 <h3><img src="https://seleniumbase.github.io/img/green_logo.png" title="SeleniumBase" width="32" /> Customizing default settings:</h3>
 
 🎛️ An easy way to override [seleniumbase/config/settings.py](https://github.com/seleniumbase/SeleniumBase/blob/master/seleniumbase/config/settings.py) is by using a custom settings file.
@@ -469,12 +537,6 @@ Here's how to connect to a Sauce Labs Selenium Grid server for running tests:
 
 ```bash
 pytest test_demo_site.py --server=USERNAME:KEY@ondemand.us-east-1.saucelabs.com --port=443 --protocol=https
-```
-
-Here's how to connect to a CrossBrowserTesting Selenium Grid server for running tests:
-
-```bash
-pytest test_demo_site.py --server=USERNAME:KEY@hub.crossbrowsertesting.com --port=80
 ```
 
 🌐 Or you can create your own Selenium Grid for test distribution. ([See this ReadMe for details](https://github.com/seleniumbase/SeleniumBase/blob/master/seleniumbase/utilities/selenium_grid/ReadMe.md))

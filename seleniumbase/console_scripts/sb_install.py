@@ -2,28 +2,30 @@
 Downloads the specified webdriver to "seleniumbase/drivers/"
 
 Usage:
-         sbase get {chromedriver|geckodriver|edgedriver|
-                    iedriver|uc_driver} [OPTIONS]
+    sbase get {chromedriver|geckodriver|edgedriver|
+               iedriver|uc_driver|cft|chs} [OPTIONS]
 Options:
-         VERSION         Specify the version.
-                         Tries to detect the needed version.
-                         If using chromedriver or edgedriver,
-                         you can use the major version integer.
-         -p OR --path    Also copy the driver to /usr/local/bin
+    VERSION         Specify the version.
+                    Tries to detect the needed version.
+                    If using chromedriver or edgedriver,
+                    you can use the major version integer.
+    -p OR --path    Also copy the driver to /usr/local/bin
 Examples:
-         sbase get chromedriver
-         sbase get geckodriver
-         sbase get edgedriver
-         sbase get chromedriver 114
-         sbase get chromedriver 114.0.5735.90
-         sbase get chromedriver stable
-         sbase get chromedriver beta
-         sbase get chromedriver -p
+    sbase get chromedriver
+    sbase get geckodriver
+    sbase get edgedriver
+    sbase get chromedriver 114
+    sbase get chromedriver 114.0.5735.90
+    sbase get chromedriver stable
+    sbase get chromedriver beta
+    sbase get chromedriver -p
+    sbase get cft 131
+    sbase get chs
 Output:
-         Downloads the webdriver to seleniumbase/drivers/
-         (chromedriver is required for Chrome automation)
-         (geckodriver is required for Firefox automation)
-         (edgedriver is required for MS__Edge automation)
+    Downloads the webdriver to seleniumbase/drivers/
+    (chromedriver is required for Chrome automation)
+    (geckodriver is required for Firefox automation)
+    (edgedriver is required for MS__Edge automation)
 """
 import colorama
 import logging
@@ -31,11 +33,13 @@ import os
 import platform
 import requests
 import shutil
+import subprocess
 import sys
 import time
 import tarfile
 import urllib3
 import zipfile
+from contextlib import suppress
 from seleniumbase.fixtures import constants
 from seleniumbase.fixtures import shared_utils
 from seleniumbase import config as sb_config
@@ -50,39 +54,44 @@ IS_WINDOWS = shared_utils.is_windows()
 DRIVER_DIR = os.path.dirname(os.path.realpath(drivers.__file__))
 LOCAL_PATH = "/usr/local/bin/"  # On Mac and Linux systems
 DEFAULT_CHROMEDRIVER_VERSION = "114.0.5735.90"  # (If can't find LATEST_STABLE)
-DEFAULT_GECKODRIVER_VERSION = "v0.34.0"
+DEFAULT_GECKODRIVER_VERSION = "v0.35.0"
 DEFAULT_EDGEDRIVER_VERSION = "115.0.1901.183"  # (If can't find LATEST_STABLE)
 
 
 def invalid_run_command():
     exp = "  ** get / install **\n\n"
     exp += "  Usage:\n"
-    exp += "           seleniumbase install [DRIVER] [OPTIONS]\n"
-    exp += "           OR     sbase install [DRIVER] [OPTIONS]\n"
-    exp += "           OR  seleniumbase get [DRIVER] [OPTIONS]\n"
-    exp += "           OR         sbase get [DRIVER] [OPTIONS]\n"
-    exp += "                (Drivers: chromedriver, geckodriver, edgedriver,\n"
-    exp += "                          iedriver, uc_driver)\n"
+    exp += "     seleniumbase install [DRIVER_NAME] [OPTIONS]\n"
+    exp += "     OR     sbase install [DRIVER_NAME] [OPTIONS]\n"
+    exp += "     OR  seleniumbase get [DRIVER_NAME] [OPTIONS]\n"
+    exp += "     OR         sbase get [DRIVER_NAME] [OPTIONS]\n"
+    exp += "         (Drivers: chromedriver, cft, uc_driver,\n"
+    exp += "                   edgedriver, chs, geckodriver)\n"
     exp += "  Options:\n"
-    exp += "           VERSION        Specify the version.\n"
-    exp += "                          Tries to detect the needed version.\n"
-    exp += "                          If using chromedriver or edgedriver,\n"
-    exp += "                          you can use the major version integer.\n"
-    exp += "           -p OR --path   Also copy the driver to /usr/local/bin\n"
+    exp += "     VERSION    Specify the version.\n"
+    exp += "                Tries to detect the needed version.\n"
+    exp += "                If using chromedriver or edgedriver,\n"
+    exp += "                you can use the major version integer.\n"
+    exp += "\n"
+    exp += "     -p OR --path   Also copy the driver to /usr/local/bin\n"
     exp += "  Examples:\n"
-    exp += "           sbase get chromedriver\n"
-    exp += "           sbase get geckodriver\n"
-    exp += "           sbase get edgedriver\n"
-    exp += "           sbase get chromedriver 114\n"
-    exp += "           sbase get chromedriver 114.0.5735.90\n"
-    exp += "           sbase get chromedriver stable\n"
-    exp += "           sbase get chromedriver beta\n"
-    exp += "           sbase get chromedriver -p\n"
+    exp += "     sbase get chromedriver\n"
+    exp += "     sbase get geckodriver\n"
+    exp += "     sbase get edgedriver\n"
+    exp += "     sbase get chromedriver 114\n"
+    exp += "     sbase get chromedriver 114.0.5735.90\n"
+    exp += "     sbase get chromedriver stable\n"
+    exp += "     sbase get chromedriver beta\n"
+    exp += "     sbase get chromedriver -p\n"
+    exp += "     sbase get cft 131\n"
+    exp += "     sbase get chs\n"
     exp += "  Output:\n"
-    exp += "          Downloads the webdriver to seleniumbase/drivers/\n"
-    exp += "          (chromedriver is required for Chrome automation)\n"
-    exp += "          (geckodriver is required for Firefox automation)\n"
-    exp += "          (edgedriver is required for MS__Edge automation)\n"
+    exp += "     Downloads the webdriver to seleniumbase/drivers/\n"
+    exp += "     (chromedriver is required for Chrome automation)\n"
+    exp += "     (geckodriver is required for Firefox automation)\n"
+    exp += "     (edgedriver is required for MS__Edge automation)\n"
+    exp += "     (cft is for the `Chrome for Testing` binary exe)\n"
+    exp += "     (chs is for the `Chrome-Headless-Shell` binary.)\n"
     print("")
     raise Exception("%s\n\n%s" % (constants.Warnings.INVALID_RUN_COMMAND, exp))
 
@@ -264,6 +273,16 @@ def main(override=None, intel_for_uc=None, force_uc=None):
         elif override.startswith("iedriver "):
             extra = override.split("iedriver ")[1]
             sys.argv = ["seleniumbase", "get", "iedriver", extra]
+        elif override == "cft":
+            sys.argv = ["seleniumbase", "get", "cft"]
+        elif override.startswith("cft "):
+            extra = override.split("cft ")[1]
+            sys.argv = ["seleniumbase", "get", "cft", extra]
+        elif override == "chs":
+            sys.argv = ["seleniumbase", "get", "chs"]
+        elif override.startswith("chs "):
+            extra = override.split("chs ")[1]
+            sys.argv = ["seleniumbase", "get", "chs", extra]
         if found_proxy:
             sys.argv.append(found_proxy)
 
@@ -293,10 +312,6 @@ def main(override=None, intel_for_uc=None, force_uc=None):
     use_version = ""
     new_file = ""
     f_name = ""
-    if IS_WINDOWS and hasattr(colorama, "just_fix_windows_console"):
-        colorama.just_fix_windows_console()
-    else:
-        colorama.init(autoreset=True)
     c1 = colorama.Fore.BLUE + colorama.Back.LIGHTCYAN_EX
     c2 = colorama.Fore.BLUE + colorama.Back.LIGHTGREEN_EX
     c3 = colorama.Fore.BLUE + colorama.Back.LIGHTYELLOW_EX
@@ -495,7 +510,7 @@ def main(override=None, intel_for_uc=None, force_uc=None):
                     file_name = "chromedriver-win32.zip"
             plat_arch = file_name.split(".zip")[0]
             download_url = (
-                "https://edgedl.me.gvt1.com/edgedl/chrome/chrome-for-testing/"
+                "https://storage.googleapis.com/chrome-for-testing-public/"
                 "%s/%s/%s" % (use_version, platform_code, file_name)
             )
         url_request = None
@@ -553,6 +568,134 @@ def main(override=None, intel_for_uc=None, force_uc=None):
             raise Exception("Could not find chromedriver to download!\n")
         if not get_latest:
             pass
+    elif name == "chrome" or name == "cft":
+        set_version = None
+        found_version = None
+        use_version = None
+        major_version = None
+        if num_args >= 4:
+            set_version = sys.argv[3]
+        if (
+            set_version
+            and set_version.split(".")[0].isnumeric()
+            and int(set_version.split(".")[0]) >= 113
+        ):
+            major_version = set_version.split(".")[0]
+        elif (
+            not set_version
+            or set_version.lower() == "latest"
+            or set_version.lower() == "stable"
+        ):
+            found_version = get_latest_stable_chromedriver_version()
+        elif (
+            set_version and (
+                set_version.lower() == "latest-1"
+                or set_version.lower() == "previous"
+            )
+        ):
+            found_version = get_latest_stable_chromedriver_version()
+            major_version = str(int(found_version.split(".")[0]) - 1)
+            found_version = None
+        elif (set_version and set_version.lower() == "beta"):
+            found_version = get_latest_beta_chromedriver_version()
+        elif (set_version and set_version.lower() == "dev"):
+            found_version = get_latest_dev_chromedriver_version()
+        elif (set_version and set_version.lower() == "canary"):
+            found_version = get_latest_canary_chromedriver_version()
+        if found_version and found_version.split(".")[0].isnumeric():
+            major_version = found_version.split(".")[0]
+            use_version = found_version
+        if not use_version:
+            use_version = get_cft_latest_version_from_milestone(major_version)
+        msg = c2 + "Chrome for Testing to download" + cr
+        p_version = c3 + use_version + cr
+        log_d("\n*** %s = %s" % (msg, p_version))
+        if IS_MAC:
+            if IS_ARM_MAC:
+                platform_code = "mac-arm64"
+                file_name = "chrome-mac-arm64.zip"
+            else:
+                platform_code = "mac-x64"
+                file_name = "chrome-mac-x64.zip"
+        elif IS_LINUX:
+            platform_code = "linux64"
+            file_name = "chrome-linux64.zip"
+        elif IS_WINDOWS:
+            if "64" in ARCH:
+                platform_code = "win64"
+                file_name = "chrome-win64.zip"
+            else:
+                platform_code = "win32"
+                file_name = "chrome-win32.zip"
+        plat_arch = file_name.split(".zip")[0]
+        download_url = (
+            "https://storage.googleapis.com/chrome-for-testing-public/"
+            "%s/%s/%s" % (use_version, platform_code, file_name)
+        )
+    elif name == "chrome-headless-shell" or name == "chs":
+        set_version = None
+        found_version = None
+        use_version = None
+        major_version = None
+        if num_args >= 4:
+            set_version = sys.argv[3]
+        if (
+            set_version
+            and set_version.split(".")[0].isnumeric()
+            and int(set_version.split(".")[0]) >= 113
+        ):
+            major_version = set_version.split(".")[0]
+        elif (
+            not set_version
+            or set_version.lower() == "latest"
+            or set_version.lower() == "stable"
+        ):
+            found_version = get_latest_stable_chromedriver_version()
+        elif (
+            set_version and (
+                set_version.lower() == "latest-1"
+                or set_version.lower() == "previous"
+            )
+        ):
+            found_version = get_latest_stable_chromedriver_version()
+            major_version = str(int(found_version.split(".")[0]) - 1)
+            found_version = None
+        elif (set_version and set_version.lower() == "beta"):
+            found_version = get_latest_beta_chromedriver_version()
+        elif (set_version and set_version.lower() == "dev"):
+            found_version = get_latest_dev_chromedriver_version()
+        elif (set_version and set_version.lower() == "canary"):
+            found_version = get_latest_canary_chromedriver_version()
+        if found_version and found_version.split(".")[0].isnumeric():
+            major_version = found_version.split(".")[0]
+            use_version = found_version
+        if not use_version:
+            use_version = get_cft_latest_version_from_milestone(major_version)
+        msg = c2 + "Chrome-Headless-Shell to download" + cr
+        p_version = c3 + use_version + cr
+        log_d("\n*** %s = %s" % (msg, p_version))
+        if IS_MAC:
+            if IS_ARM_MAC:
+                platform_code = "mac-arm64"
+                file_name = "chrome-headless-shell-mac-arm64.zip"
+            else:
+                platform_code = "mac-x64"
+                file_name = "chrome-headless-shell-mac-x64.zip"
+        elif IS_LINUX:
+            platform_code = "linux64"
+            file_name = "chrome-headless-shell-linux64.zip"
+        elif IS_WINDOWS:
+            if "64" in ARCH:
+                platform_code = "win64"
+                file_name = "chrome-headless-shell-win64.zip"
+            else:
+                platform_code = "win32"
+                file_name = "chrome-headless-shell-win32.zip"
+        plat_arch = file_name.split(".zip")[0]
+        download_url = (
+            "https://storage.googleapis.com/chrome-for-testing-public/"
+            "%s/%s/%s" % (use_version, platform_code, file_name)
+        )
     elif name == "geckodriver" or name == "firefoxdriver":
         use_version = DEFAULT_GECKODRIVER_VERSION
         found_geckodriver = False
@@ -578,10 +721,18 @@ def main(override=None, intel_for_uc=None, force_uc=None):
             else:
                 invalid_run_command()
         if IS_MAC:
-            file_name = "geckodriver-%s-macos.tar.gz" % use_version
+            if IS_ARM_MAC:
+                file_name = "geckodriver-%s-macos-aarch64.tar.gz" % use_version
+            else:
+                file_name = "geckodriver-%s-macos.tar.gz" % use_version
         elif IS_LINUX:
             if "64" in ARCH:
-                file_name = "geckodriver-%s-linux64.tar.gz" % use_version
+                if "aarch64" in platform.processor():
+                    file_name = (
+                        "geckodriver-%s-linux-aarch64.tar.gz" % use_version
+                    )
+                else:
+                    file_name = "geckodriver-%s-linux64.tar.gz" % use_version
             else:
                 file_name = "geckodriver-%s-linux32.tar.gz" % use_version
         elif IS_WINDOWS:
@@ -710,8 +861,7 @@ def main(override=None, intel_for_uc=None, force_uc=None):
         p_version = c3 + use_version + cr
         log_d("\n*** %s = %s" % (msg, p_version))
     elif name == "iedriver":
-        major_version = "3.14"
-        full_version = "3.14.0"
+        full_version = "4.14.0"
         use_version = full_version
         if IS_WINDOWS and "64" in ARCH:
             file_name = "IEDriverServer_x64_%s.zip" % full_version
@@ -723,8 +873,9 @@ def main(override=None, intel_for_uc=None, force_uc=None):
                 "Windows-based systems!"
             )
         download_url = (
-            "https://selenium-release.storage.googleapis.com/"
-            "%s/%s" % (major_version, file_name)
+            "https://github.com/SeleniumHQ/selenium/"
+            "releases/download/selenium-"
+            "%s/%s" % (full_version, file_name)
         )
         headless_ie_version = "v1.4"
         headless_ie_file_name = "headless-selenium-for-win-v1-4.zip"
@@ -806,7 +957,7 @@ def main(override=None, intel_for_uc=None, force_uc=None):
         zip_ref.extractall(downloads_folder)
         zip_ref.close()
         os.remove(zip_file_path)
-        shutil.copyfile(driver_path, os.path.join(downloads_folder, filename))
+        shutil.copy3(driver_path, os.path.join(downloads_folder, filename))
         log_d("%sUnzip Complete!%s\n" % (c2, cr))
         to_remove = [
             "%s/%s/ruby_example/Gemfile" % (downloads_folder, h_ie_fn),
@@ -936,7 +1087,10 @@ def main(override=None, intel_for_uc=None, force_uc=None):
                         f_name = "uc_driver"
                 new_file = os.path.join(downloads_folder, str(f_name))
                 pr_file = c3 + new_file + cr
-                log_d("The file [%s] was saved to:\n%s\n" % (f_name, pr_file))
+                d_folder = os.sep.join(pr_file.split(os.sep)[:-1]) + os.sep
+                d_file = pr_file.split(os.sep)[-1]
+                d_ff = c3 + d_folder + cr + "\n" + c3 + d_file + cr
+                log_d("The file [%s] was saved to:\n%s\n" % (f_name, d_ff))
                 log_d("Making [%s %s] executable ..." % (f_name, use_version))
                 make_executable(new_file)
                 log_d(
@@ -945,11 +1099,15 @@ def main(override=None, intel_for_uc=None, force_uc=None):
                 )
                 if copy_to_path and os.path.exists(LOCAL_PATH):
                     path_file = LOCAL_PATH + f_name
-                    shutil.copyfile(new_file, path_file)
+                    shutil.copy2(new_file, path_file)
                     make_executable(path_file)
                     log_d("Also copied to: %s%s%s" % (c3, path_file, cr))
             log_d("")
-        elif name == "edgedriver" or name == "msedgedriver":
+        elif (
+            name == "edgedriver"
+            or name == "msedgedriver"
+            or name == "iedriver"
+        ):
             if IS_MAC or IS_LINUX:
                 # Mac / Linux
                 expected_contents = [
@@ -969,6 +1127,8 @@ def main(override=None, intel_for_uc=None, force_uc=None):
                     "Driver_Notes/LICENSE",
                     "msedgedriver.exe",
                 ]
+            if name == "iedriver":
+                expected_contents = ["IEDriverServer.exe"]
             if len(contents) > 5:
                 raise Exception("Unexpected content in EdgeDriver Zip file!")
             for content in contents:
@@ -984,21 +1144,20 @@ def main(override=None, intel_for_uc=None, force_uc=None):
                 # Remove existing version if exists
                 str_name = str(f_name)
                 new_file = os.path.join(downloads_folder, str_name)
-                if IS_MAC or IS_LINUX:
-                    # Mac / Linux
-                    if str_name == "msedgedriver":
-                        driver_file = str_name
-                        driver_path = new_file
-                        if os.path.exists(new_file):
-                            os.remove(new_file)
-                else:
-                    # Windows
-                    if str_name == "msedgedriver.exe":
-                        driver_file = str_name
-                        driver_path = new_file
-                        if os.path.exists(new_file):
-                            os.remove(new_file)
+                if (
+                    ((IS_MAC or IS_LINUX) and str_name == "msedgedriver")
+                    or (
+                        str_name == "msedgedriver.exe"
+                        or str_name == "IEDriverServer.exe"
+                    )
+                ):
+                    driver_file = str_name
+                    driver_path = new_file
+                    if os.path.exists(new_file):
+                        os.remove(new_file)
             if not driver_file or not driver_path:
+                if str_name == "IEDriverServer.exe":
+                    raise Exception("IEDriverServer missing from Zip file!")
                 raise Exception("msedgedriver missing from Zip file!")
             log_d("Extracting %s from %s ..." % (contents, file_name))
             zip_ref.extractall(downloads_folder)
@@ -1016,10 +1175,14 @@ def main(override=None, intel_for_uc=None, force_uc=None):
             if os.path.exists(os.path.join(downloads_folder, "Driver_Notes/")):
                 # Only works if the directory is empty
                 os.rmdir(os.path.join(downloads_folder, "Driver_Notes/"))
-            pr_driver_path = c3 + driver_path + cr
+            driver_base = os.sep.join(driver_path.split(os.sep)[:-1])
+            driver_file = driver_path.split(os.sep)[-1]
+            pr_driver_base = c3 + driver_base + cr
+            pr_sep = c3 + os.sep + cr
+            pr_driver_file = c3 + driver_file + cr
             log_d(
-                "The file [%s] was saved to:\n%s\n"
-                % (driver_file, pr_driver_path)
+                "The file [%s] was saved to:\n%s%s\n%s\n"
+                % (driver_file, pr_driver_base, pr_sep, pr_driver_file)
             )
             log_d("Making [%s %s] executable ..." % (driver_file, use_version))
             make_executable(driver_path)
@@ -1029,10 +1192,94 @@ def main(override=None, intel_for_uc=None, force_uc=None):
             )
             if copy_to_path and os.path.exists(LOCAL_PATH):
                 path_file = LOCAL_PATH + f_name
-                shutil.copyfile(new_file, path_file)
+                shutil.copy2(new_file, path_file)
                 make_executable(path_file)
                 log_d("Also copied to: %s%s%s" % (c3, path_file, cr))
             log_d("")
+        elif name == "chrome" or name == "cft":
+            # Zip file is valid. Proceed.
+            driver_path = None
+            driver_file = None
+            base_path = os.sep.join(zip_file_path.split(os.sep)[:-1])
+            folder_name = contents[0].split("/")[0]
+            folder_path = os.path.join(base_path, folder_name)
+            if IS_MAC or IS_LINUX:
+                if (
+                    "chrome-" in folder_path
+                    and "drivers" in folder_path
+                    and os.path.exists(folder_path)
+                ):
+                    shutil.rmtree(folder_path)
+                subprocess.run(
+                    ["unzip", zip_file_path, "-d", downloads_folder]
+                )
+            elif IS_WINDOWS:
+                subprocess.run(
+                    [
+                        "powershell",
+                        "Expand-Archive",
+                        "-Path",
+                        zip_file_path,
+                        "-DestinationPath",
+                        downloads_folder,
+                        "-Force",
+                    ]
+                )
+            else:
+                zip_ref.extractall(downloads_folder)
+                zip_ref.close()
+            with suppress(Exception):
+                os.remove(zip_file_path)
+            log_d("%sUnzip Complete!%s\n" % (c2, cr))
+            pr_base_path = c3 + base_path + cr
+            pr_sep = c3 + os.sep + cr
+            pr_folder_name = c3 + folder_name + cr
+            log_d(
+                "Chrome for Testing was saved inside:\n%s%s\n%s\n"
+                % (pr_base_path, pr_sep, pr_folder_name)
+            )
+        elif name == "chrome-headless-shell" or name == "chs":
+            # Zip file is valid. Proceed.
+            driver_path = None
+            driver_file = None
+            base_path = os.sep.join(zip_file_path.split(os.sep)[:-1])
+            folder_name = contents[0].split("/")[0]
+            folder_path = os.path.join(base_path, folder_name)
+            if IS_MAC or IS_LINUX:
+                if (
+                    "chrome-headless-shell-" in folder_path
+                    and "drivers" in folder_path
+                    and os.path.exists(folder_path)
+                ):
+                    shutil.rmtree(folder_path)
+                subprocess.run(
+                    ["unzip", zip_file_path, "-d", downloads_folder]
+                )
+            elif IS_WINDOWS:
+                subprocess.run(
+                    [
+                        "powershell",
+                        "Expand-Archive",
+                        "-Path",
+                        zip_file_path,
+                        "-DestinationPath",
+                        downloads_folder,
+                        "-Force",
+                    ]
+                )
+            else:
+                zip_ref.extractall(downloads_folder)
+                zip_ref.close()
+            with suppress(Exception):
+                os.remove(zip_file_path)
+            log_d("%sUnzip Complete!%s\n" % (c2, cr))
+            pr_base_path = c3 + base_path + cr
+            pr_sep = c3 + os.sep + cr
+            pr_folder_name = c3 + folder_name + cr
+            log_d(
+                "Chrome-Headless-Shell was saved inside:\n%s%s\n%s\n"
+                % (pr_base_path, pr_sep, pr_folder_name)
+            )
         elif len(contents) == 0:
             raise Exception("Zip file %s is empty!" % zip_file_path)
         else:
@@ -1065,7 +1312,7 @@ def main(override=None, intel_for_uc=None, force_uc=None):
                 )
                 if copy_to_path and os.path.exists(LOCAL_PATH):
                     path_file = LOCAL_PATH + f_name
-                    shutil.copyfile(new_file, path_file)
+                    shutil.copy2(new_file, path_file)
                     make_executable(path_file)
                     log_d("Also copied to: %s%s%s" % (c3, path_file, cr))
             log_d("")

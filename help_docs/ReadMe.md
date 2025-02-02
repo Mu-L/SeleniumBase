@@ -1,6 +1,6 @@
 <!-- SeleniumBase Docs -->
 
-<p align="center"><a href="https://github.com/seleniumbase/SeleniumBase/"><img src="https://seleniumbase.github.io/cdn/img/sb_word_cloud.png" alt="SeleniumBase" title="SeleniumBase" width="450" /></a></p>
+<p align="center"><a href="https://github.com/seleniumbase/SeleniumBase/"><img src="https://seleniumbase.github.io/cdn/img/sb_word_cloud.png" alt="SeleniumBase" title="SeleniumBase" width="330" /></a></p>
 
 ## [<img src="https://seleniumbase.github.io/img/logo6.png" title="SeleniumBase" width="32">](https://github.com/seleniumbase/SeleniumBase/) Help Docs
 
@@ -20,7 +20,7 @@
 <a href="https://seleniumbase.io/help_docs/method_summary/">📘 Methods / APIs</a> |
 <a href="https://seleniumbase.io/examples/tour_examples/ReadMe/">🚎 Tours</a>
 <br />
-<a href="https://seleniumbase.io/help_docs/syntax_formats/">🔡 Syntax Formats</a> |
+<a href="https://seleniumbase.io/help_docs/syntax_formats/">🔠 Syntax Formats</a> |
 <a href="https://seleniumbase.io/integrations/github/workflows/ReadMe/">🤖 CI/CD</a>
 <br />
 <a href="https://github.com/seleniumbase/SeleniumBase/tree/master/examples/boilerplates">♻️ Boilerplates</a> |
@@ -33,10 +33,15 @@
 <a href="https://seleniumbase.io/examples/dialog_boxes/ReadMe/">🛂 Dialog Boxes</a>
 <br />
 <a href="https://seleniumbase.io/help_docs/recorder_mode/">🔴 Recorder</a> |
-<a href="https://github.com/seleniumbase/SeleniumBase/tree/master/examples/migration/raw_selenium">🚝 Migrate</a>
+<a href="https://seleniumbase.io/devices/?url=seleniumbase.io">💻 Device Farm</a>
 <br />
 <a href="https://seleniumbase.io/examples/presenter/ReadMe/">🎞️ Slides</a> |
-<a href="https://seleniumbase.io/examples/chart_maker/ReadMe/">📶 Charts</a>
+<a href="https://seleniumbase.io/examples/chart_maker/ReadMe/">📶 Chart Maker</a>
+<br / >
+<a href="https://github.com/seleniumbase/SeleniumBase/blob/master/help_docs/commander.md">🎖️ GUI</a> |
+<a href="https://github.com/seleniumbase/SeleniumBase/blob/master/help_docs/uc_mode.md">👤 UC Mode</a>
+<br / >
+<a href="https://seleniumbase.io/examples/cdp_mode/ReadMe/">🐙 CDP Mode</a>
 </p>
 
 --------
@@ -57,19 +62,20 @@
 <div><a href="https://seleniumbase.io/examples/example_logs/ReadMe/"><b>The Dashboard</b></a></div>
 <div><a href="https://seleniumbase.io/help_docs/recorder_mode/"><b>Recorder Mode</b></a></div>
 <div><a href="https://seleniumbase.io/help_docs/commander/"><b>pytest Commander</b></a></div>
+<div><a href="https://seleniumbase.io/help_docs/method_summary/"><b>Method Summary</b></a></div>
 <div><a href="https://seleniumbase.io/help_docs/syntax_formats/"><b>Syntax Formats</b></a></div>
 <div><a href="https://seleniumbase.io/examples/behave_bdd/ReadMe/"><b>Behave BDD</b></a></div>
 <div><a href="https://seleniumbase.io/help_docs/behave_gui/"><b>Behave Commander</b></a></div>
 <div><a href="https://seleniumbase.io/help_docs/mobile_testing/"><b>Mobile Device Testing</b></a></div>
-<div><a href="https://seleniumbase.io/help_docs/method_summary/"><b>Method Summary (API Ref)</b></a></div>
 <div><a href="https://seleniumbase.io/help_docs/case_plans/"><b>Case Plans</b></a></div>
+<div><a href="https://seleniumbase.io/examples/chart_maker/ReadMe/"><b>Chart Maker</b></a></div>
 <div><a href="https://seleniumbase.io/help_docs/translations/"><b>Language Translations</b></a></div>
 <div><a href="https://seleniumbase.io/help_docs/locale_codes/"><b>Language Locale Codes</b></a></div>
 <div><a href="https://seleniumbase.io/help_docs/js_package_manager/"><b>JS Package Manager</b></a></div>
-<div><a href="https://seleniumbase.io/examples/tour_examples/ReadMe/"><b>Tour Examples</b></a></div>
+<div><a href="https://seleniumbase.io/examples/tour_examples/ReadMe/"><b>Tour Maker</b></a></div>
 <div><a href="https://seleniumbase.io/examples/presenter/ReadMe/"><b>Presentation Maker</b></a></div>
-<div><a href="https://seleniumbase.io/examples/chart_maker/ReadMe/"><b>Chart Maker</b></a></div>
 <div><a href="https://seleniumbase.io/help_docs/handling_iframes/"><b>Handling iframes</b></a></div>
+<div><a href="https://seleniumbase.io/help_docs/uc_mode/"><b>Undetected Mode (UC Mode)</b></a></div>
 <div><a href="https://seleniumbase.io/help_docs/mysql_installation/"><b>MySQL Installation Overview</b></a></div>
 <div><a href="https://seleniumbase.io/seleniumbase/utilities/selenium_grid/ReadMe/"><b>Using the Selenium Grid</b></a></div>
 <div><a href="https://seleniumbase.io/help_docs/desired_capabilities/"><b>Browser Desired Capabilities</b></a></div>

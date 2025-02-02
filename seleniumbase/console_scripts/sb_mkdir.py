@@ -27,18 +27,18 @@ import sys
 def invalid_run_command(msg=None):
     exp = "  ** mkdir **\n\n"
     exp += "  Usage:\n"
-    exp += "          seleniumbase mkdir [DIRECTORY] [OPTIONS]\n"
-    exp += "          OR     sbase mkdir [DIRECTORY] [OPTIONS]\n"
+    exp += "     seleniumbase mkdir [DIRECTORY] [OPTIONS]\n"
+    exp += "     OR     sbase mkdir [DIRECTORY] [OPTIONS]\n"
     exp += "  Example:\n"
-    exp += "          sbase mkdir ui_tests\n"
+    exp += "     sbase mkdir ui_tests\n"
     exp += "  Options:\n"
-    exp += "          -b / --basic  (Only config files. No tests added.)\n"
+    exp += "     -b / --basic  (Only config files. No tests added.)\n"
     exp += "  Output:\n"
-    exp += "          Creates a new folder for running SBase scripts.\n"
-    exp += "          The new folder contains default config files,\n"
-    exp += "          sample tests for helping new users get started,\n"
-    exp += "          and Python boilerplates for setting up customized\n"
-    exp += "          test frameworks.\n"
+    exp += "     Creates a new folder for running SBase scripts.\n"
+    exp += "     The new folder contains default config files,\n"
+    exp += "     sample tests for helping new users get started,\n"
+    exp += "     and Python boilerplates for setting up customized\n"
+    exp += "     test frameworks.\n"
     if not msg:
         raise Exception("INVALID RUN COMMAND!\n\n%s" % exp)
     elif msg == "help":
@@ -54,13 +54,6 @@ def main():
     c7 = ""
     cr = ""
     if "linux" not in sys.platform:
-        if (
-            "win32" in sys.platform
-            and hasattr(colorama, "just_fix_windows_console")
-        ):
-            colorama.just_fix_windows_console()
-        else:
-            colorama.init(autoreset=True)
         c1 = colorama.Fore.BLUE + colorama.Back.LIGHTCYAN_EX
         c5 = colorama.Fore.RED + colorama.Back.LIGHTYELLOW_EX
         c7 = colorama.Fore.BLACK + colorama.Back.MAGENTA
@@ -127,7 +120,7 @@ def main():
 
     data = []
     data.append("[pytest]")
-    data.append("addopts = --capture=no -p no:cacheprovider")
+    data.append("addopts = --capture=tee-sys -p no:cacheprovider")
     data.append("norecursedirs = .* build dist recordings temp assets")
     data.append("filterwarnings =")
     data.append("    ignore::pytest.PytestWarning")
@@ -254,6 +247,27 @@ def main():
     data.append("msedgedriver.exe")
     data.append("operadriver.exe")
     data.append("uc_driver.exe")
+    data.append("chrome-mac-arm64.zip")
+    data.append("chrome-mac-x64.zip")
+    data.append("chrome-linux64.zip")
+    data.append("chrome-win64.zip")
+    data.append("chrome-win32.zip")
+    data.append("chrome-mac-arm64")
+    data.append("chrome-mac-x64")
+    data.append("chrome-linux64")
+    data.append("chrome-win64")
+    data.append("chrome-win32")
+    data.append("chrome-headless-shell-mac-arm64.zip")
+    data.append("chrome-headless-shell-mac-x64.zip")
+    data.append("chrome-headless-shell-linux64.zip")
+    data.append("chrome-headless-shell-win64.zip")
+    data.append("chrome-headless-shell-win32.zip")
+    data.append("chrome-headless-shell-mac-arm64")
+    data.append("chrome-headless-shell-mac-x64")
+    data.append("chrome-headless-shell-linux64")
+    data.append("chrome-headless-shell-win64")
+    data.append("chrome-headless-shell-win32")
+    data.append("libc++.dylib")
     data.append("logs")
     data.append("latest_logs")
     data.append("log_archives")
@@ -266,6 +280,7 @@ def main():
     data.append("report_archives")
     data.append("archived_reports")
     data.append("html_report.html")
+    data.append("last_report.html")
     data.append("report.html")
     data.append("report.xml")
     data.append("dashboard.html")
@@ -381,12 +396,9 @@ def main():
         '        self.assert_text("Typing Text!", \'[name="preText2"]\')'
     )
     data.append('        self.assert_text("Automation Practice", "h3")')
-    data.append("        try:")
-    data.append("            self.hover_and_click(")
-    data.append('                "#myDropdown", "#dropOption2", timeout=1)')
-    data.append("        except Exception:")
-    data.append("            # Someone moved the mouse while the test ran")
-    data.append('            self.js_click("#dropOption2")')
+    data.append(
+        '        self.hover_and_js_click("#myDropdown", "#dropOption2")'
+    )
     data.append('        self.assert_text("Link Two Selected", "h3")')
     data.append('        self.assert_text("This Text is Green", "#pText")')
     data.append('        self.click("#myButton")')

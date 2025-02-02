@@ -164,6 +164,7 @@ class MultiBrowser:
     CERT_FIXING_LOCK = Files.DOWNLOADS_FOLDER + "/cert_fixing.lock"
     DOWNLOAD_FILE_LOCK = Files.DOWNLOADS_FOLDER + "/downloading.lock"
     FILE_IO_LOCK = Files.DOWNLOADS_FOLDER + "/file_io.lock"
+    PYAUTOGUILOCK = Files.DOWNLOADS_FOLDER + "/pyautogui.lock"
 
 
 class SavedCookies:
@@ -197,7 +198,7 @@ class Warnings:
 
 
 class JQuery:
-    VER = "3.6.3"
+    VER = "3.7.1"
     MIN_JS = "https://cdn.jsdelivr.net/npm/jquery@%s/dist/jquery.min.js" % VER
 
 
@@ -218,14 +219,14 @@ class Messenger:
 
 
 class Underscore:
-    VER = "1.13.4"
+    VER = "1.13.6"
     MIN_JS = (
         "https://cdn.jsdelivr.net/npm/underscore@%s/underscore.min.js" % VER
     )
 
 
 class Backbone:
-    VER = "1.4.1"
+    VER = "1.6.0"
     MIN_JS = "https://cdn.jsdelivr.net/npm/backbone@%s/backbone.min.js" % VER
 
 
@@ -263,7 +264,7 @@ class Reveal:
 
 
 class HighCharts:
-    VER = "9.0.1"  # Later versions have a bug that removes default colors
+    VER = "10.3.3"
     HC_CSS = "https://code.highcharts.com/%s/css/highcharts.css" % VER
     HC_JS = "https://code.highcharts.com/%s/highcharts.js" % VER
     EXPORTING_JS = "https://code.highcharts.com/%s/modules/exporting.js" % VER
@@ -343,9 +344,20 @@ class Tether:
     )
 
 
+class ProxyPy:
+    # The version installed if proxy.py is not installed
+    VER = "2.4.3"
+
+
 class SeleniumWire:
     # The version installed if selenium-wire is not installed
     VER = "5.1.0"
+    BLINKER_VER = "1.7.0"  # The "blinker" dependency version
+
+
+class PyAutoGUI:
+    # The version installed if PyAutoGUI is not installed
+    VER = "0.9.54"
 
 
 class Mobile:
@@ -362,7 +374,9 @@ class Mobile:
 
 
 class UC:
-    RECONNECT_TIME = 2.28  # Seconds
+    RECONNECT_TIME = 2.4  # Seconds
+    CDP_MODE_OPEN_WAIT = 0.9  # Seconds
+    EXTRA_WINDOWS_WAIT = 0.3  # Seconds
 
 
 class ValidBrowsers:
@@ -386,6 +400,7 @@ class ValidBinaries:
         "google-chrome-beta",
         "google-chrome-dev",
         "google-chrome-unstable",
+        "chrome-headless-shell",
         "brave-browser",
         "brave-browser-stable",
         "brave",
@@ -404,6 +419,9 @@ class ValidBinaries:
         "Google Chrome",
         "Chromium",
         "Google Chrome for Testing",
+        "chrome-headless-shell",
+        "Google Chrome Beta",
+        "Google Chrome Dev",
         "Brave Browser",
         "Opera",
     ]
@@ -413,6 +431,7 @@ class ValidBinaries:
     valid_chrome_binaries_on_windows = [
         "chrome.exe",
         "chromium.exe",
+        "chrome-headless-shell.exe",
         "brave.exe",
         "opera.exe",
     ]

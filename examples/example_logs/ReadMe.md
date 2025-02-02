@@ -45,7 +45,7 @@ python -m http.server 1948
 🔵 Here's a full example of what the SeleniumBase Dashboard may look like:
 
 ```bash
-pytest test_suite.py --dashboard --rs --headless
+pytest test_suite.py test_image_saving.py --dashboard --rs --headless
 ```
 
 <img src="https://seleniumbase.github.io/cdn/img/dashboard_2.png" alt="The SeleniumBase Dashboard" title="The SeleniumBase Dashboard" width="480" />
@@ -74,9 +74,9 @@ pytest test_suite.py --dashboard --html=report.html
 
 --------
 
-If viewing ``pytest-html`` reports in [Jenkins](https://www.jenkins.io/), you may need to [configure Jenkins settings](https://stackoverflow.com/a/46197356) for the HTML to render correctly. This is due to [Jenkins CSP changes](https://www.jenkins.io/doc/book/security/configuring-content-security-policy/). That setting can be changed from ``Manage Jenkins`` > ``Script Console`` by running:
+If viewing ``pytest-html`` reports in [Jenkins](https://www.jenkins.io/), you may need to [configure Jenkins settings](https://stackoverflow.com/a/46197356/7058266) for the HTML to render correctly. This is due to [Jenkins CSP changes](https://www.jenkins.io/doc/book/security/configuring-content-security-policy/). That setting can be changed from ``Manage Jenkins`` > ``Script Console`` by running:
 
-```
+```js
 System.setProperty("hudson.model.DirectoryBrowserSupport.CSP", "")
 ```
 

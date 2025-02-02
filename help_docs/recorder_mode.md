@@ -59,7 +59,7 @@ sbase recorder
 
 ⏺️ While a recording is in progress, you can press the ``[ESC]`` key to pause the Recorder. To resume the recording, you can hit the ``[~`]`` key, which is located directly below the ``[ESC]`` key on most keyboards.
 
-⏺️ From within Recorder Mode there are two additional modes: "Assert Element Mode" and "Assert Text Mode". To switch into "Assert Element Mode", press the ``[^]-key (SHIFT+6)``: The border will become purple, and you'll be able to click on elements to assert from your test. To switch into "Assert Text Mode", press the ``[&]-key (SHIFT+7)``: The border will become teal, and you'll be able to click on elements for asserting text from your test.
+⏺️ From within Recorder Mode there are two additional modes: "Assert Element Mode" and "Assert Text Mode". To switch into "Assert Element Mode", press the ``[^]-key (SHIFT+6 on standard QWERTY keyboards)``: The border will become purple, and you'll be able to click on elements to assert from your test. To switch into "Assert Text Mode", press the ``[&]-key (SHIFT+7 on standard QWERTY keyboards)``: The border will become teal, and you'll be able to click on elements for asserting text from your test.
 
 ⏺️ While using either of the two special Assertion Modes, certain actions such as clicking on links won't have any effect. This lets you make assertions on elements without navigating away from the page, etc. To add an assertion for buttons without triggering default "click" behavior, mouse-down on the button and then mouse-up somewhere else. (This prevents a detected click while still recording the assert.) To return back to the original Recorder Mode, press any key other than ``[SHIFT]`` or ``[BACKSPACE]`` (Eg: Press ``[CONTROL]``, etc.). Press ``[ESC]`` once to leave the Assertion Modes, but it'll stop the Recorder if you press it again.
 
@@ -75,7 +75,7 @@ sbase print ./recordings/TEST_NAME_rec.py -n
 cp ./recordings/TEST_NAME_rec.py ./TEST_NAME.py
 ```
 
-The first command creates a boilerplate test with a breakpoint; the second command runs the test with the Recorder activated; the third command prints the completed test to the console; and the fourth command replaces the initial boilerplate with the completed test. If you're just experimenting with the Recorder, you can run the second command as many times as you want, and it'll override previous recordings saved to ``./recordings/TEST_NAME_rec.py``. (Note that ``-s`` is needed to allow breakpoints, unless you already have a ``pytest.ini`` file present with ``addopts = --capture=no`` in it. The ``-q`` is optional, which shortens ``pytest`` console output.)
+The first command creates a boilerplate test with a breakpoint; the second command runs the test with the Recorder activated; the third command prints the completed test to the console; and the fourth command replaces the initial boilerplate with the completed test. If you're just experimenting with the Recorder, you can run the second command as many times as you want, and it'll override previous recordings saved to ``./recordings/TEST_NAME_rec.py``. (Note that ``-s`` is needed to allow breakpoints, unless you already have a ``pytest.ini`` file present where you set it. The ``-q`` is optional, which shortens ``pytest`` console output.)
 
 ⏺️ You can also use the Recorder to add code to an existing test. To do that, you'll first need to create a breakpoint in your code to insert manual browser actions:
 
@@ -120,6 +120,10 @@ pytest TEST_NAME.py --trace --rec -s
 ⏺️ (Note that <b>same domain/origin</b> is not the same as <b>same URL</b>. Example: <a href="https://xkcd.com/353/" target="_blank">https://xkcd.com/353</a> and <a href="https://xkcd.com/1537/" target="_blank">https://xkcd.com/1537</a> are two different URLs with the <b>same domain/origin</b>. That means both URLs share the same sessionStorage, and that changes persist to different URLs of the same domain/origin. If you want to find out a website's origin during a test, just call: <code>self.get_origin()</code>, which returns the value of <code>window.location.origin</code> from the browser's console.)
 
 ⏺️ Inside recorded tests, you might find the <code>self.open_if_not_url(URL)</code> method, which opens the URL given if the browser is not currently on that page. SeleniumBase uses this method in recorded scripts when the Recorder detects that a browser action changed the current URL. This method prevents an unnecessary page load and shows what page the test visited after a browser action.
+
+⏺️ By launching the Recorder App with <code>sbase recorder --ee</code>, you can end the recording by pressing {<code>SHIFT</code>+<code>ESC</code>} instead of the usual way of ending the recording by typing <code>c</code> from a <code>breakpoint()</code> and pressing <code>Enter</code>. Those buttons don't need to be pressed at the same time, but <code>SHIFT</code> must be pressed directly before <code>ESC</code>.
+
+⏺️ Use <code>sbase recorder --uc</code> to launch the Recorder App with UC Mode enabled. (The driver will be disconnected from Chrome, but the Recorder extension will still capture any browser actions.)
 
 --------
 

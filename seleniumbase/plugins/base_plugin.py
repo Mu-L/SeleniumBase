@@ -2,6 +2,7 @@
 import ast
 import sys
 import time
+from contextlib import suppress
 from nose.plugins import Plugin
 from seleniumbase import config as sb_config
 from seleniumbase.config import settings
@@ -219,14 +220,14 @@ class Base(Plugin):
     def beforeTest(self, test):
         sb_config._context_of_runner = False  # Context Manager Compatibility
         variables = self.options.variables
-        if variables and type(variables) is str and len(variables) > 0:
+        if variables and isinstance(variables, str) and len(variables) > 0:
             bad_input = False
             if not variables.startswith("{") or not variables.endswith("}"):
                 bad_input = True
             else:
                 try:
                     variables = ast.literal_eval(variables)
-                    if not type(variables) is dict:
+                    if not isinstance(variables, dict):
                         bad_input = True
                 except Exception:
                     bad_input = True
@@ -305,14 +306,12 @@ class Base(Plugin):
         if python3_11_or_newer and py311_patch2:
             # Handle a bug on Python 3.11 where exceptions aren't seen
             sb_config._browser_version = None
-            try:
+            with suppress(Exception):
                 test._BaseCase__set_last_page_screenshot()
                 test._BaseCase__set_last_page_url()
                 test._BaseCase__set_last_page_source()
                 sb_config._browser_version = test._get_browser_version()
                 test._log_fail_data()
-            except Exception:
-                pass
             sb_config._excinfo_tb = err
             log_path = None
             if hasattr(sb_config, "_test_logpath"):
