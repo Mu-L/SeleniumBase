@@ -7,10 +7,10 @@ Usage --> ``with SB() as sb:``
 
 Example -->
 
-```
+```python
 from seleniumbase import SB
 
-with SB() as sb:  # Many args! Eg. SB(browser="edge")
+with SB(uc=True) as sb:  # Many args! Eg. SB(browser="edge")
     sb.open("https://google.com/ncr")
     sb.type('[name="q"]', "SeleniumBase on GitHub\n")
     sb.click('a[href*="github.com/seleniumbase"]')
@@ -32,8 +32,9 @@ def SB(
     rtf=None,  # Shortcut / Duplicate of "raise_test_failure".
     raise_test_failure=None,  # If "test" mode, raise Exception on 1st failure.
     browser=None,  # Choose from "chrome", "edge", "firefox", or "safari".
-    headless=None,  # The original headless mode for Chromium and Firefox.
-    headless2=None,  # Chromium's new headless mode. (Has more features)
+    headless=None,  # Use the default headless mode for Chromium and Firefox.
+    headless1=None,  # Use Chromium's old headless mode. (Fast, but limited)
+    headless2=None,  # Use Chromium's new headless mode. (Has more features)
     locale_code=None,  # Set the Language Locale Code for the web browser.
     protocol=None,  # The Selenium Grid protocol: "http" or "https".
     servername=None,  # The Selenium Grid server/IP used for tests.
@@ -41,12 +42,13 @@ def SB(
     proxy=None,  # Use proxy. Format: "SERVER:PORT" or "USER:PASS@SERVER:PORT".
     proxy_bypass_list=None,  # Skip proxy when using the listed domains.
     proxy_pac_url=None,  # Use PAC file. (Format: URL or USERNAME:PASSWORD@URL)
-    multi_proxy=False,  # Allow multiple proxies with auth when multi-threaded.
+    multi_proxy=None,  # Allow multiple proxies with auth when multi-threaded.
     agent=None,  # Modify the web browser's User-Agent string.
     cap_file=None,  # The desired capabilities to use with a Selenium Grid.
     cap_string=None,  # The desired capabilities to use with a Selenium Grid.
     recorder_ext=None,  # Enables the SeleniumBase Recorder Chromium extension.
-    disable_js=None,  # Disable JavaScript on websites. Pages might break!
+    disable_cookies=None,  # Disable Cookies on websites. (Pages might break!)
+    disable_js=None,  # Disable JavaScript on websites. (Pages might break!)
     disable_csp=None,  # Disable the Content Security Policy of websites.
     enable_ws=None,  # Enable Web Security on Chromium-based browsers.
     enable_sync=None,  # Enable "Chrome Sync" on websites.
@@ -76,12 +78,16 @@ def SB(
     binary_location=None,  # Set path of the Chromium browser binary to use.
     driver_version=None,  # Set the chromedriver or uc_driver version to use.
     skip_js_waits=None,  # Skip JS Waits (readyState=="complete" and Angular).
+    wait_for_angularjs=None,  # Wait for AngularJS to load after some actions.
     use_wire=None,  # Use selenium-wire's webdriver over selenium webdriver.
     external_pdf=None,  # Set Chrome "plugins.always_open_pdf_externally":True.
+    window_position=None,  # Set the browser's starting window position: "X,Y"
+    window_size=None,  # Set the browser's starting window size: "Width,Height"
     is_mobile=None,  # Use the mobile device emulator while running tests.
     mobile=None,  # Shortcut / Duplicate of "is_mobile".
     device_metrics=None,  # Set mobile metrics: "CSSWidth,CSSHeight,PixelRatio"
     xvfb=None,  # Run tests using the Xvfb virtual display server on Linux OS.
+    xvfb_metrics=None,  # Set Xvfb display size on Linux: "Width,Height".
     start_page=None,  # The starting URL for the web browser when tests begin.
     rec_print=None,  # If Recorder is enabled, prints output after tests end.
     rec_behave=None,  # Like Recorder Mode, but also generates behave-gherkin.
@@ -98,14 +104,23 @@ def SB(
     disable_ws=None,  # Reverse of "enable_ws". (None and False are different)
     disable_beforeunload=None,  # Disable the "beforeunload" event on Chromium.
     settings_file=None,  # A file for overriding default SeleniumBase settings.
+    position=None,  # Shortcut / Duplicate of "window_position".
+    size=None,  # Shortcut / Duplicate of "window_size".
     uc=None,  # Shortcut / Duplicate of "undetectable".
     undetected=None,  # Shortcut / Duplicate of "undetectable".
     uc_cdp=None,  # Shortcut / Duplicate of "uc_cdp_events".
     uc_sub=None,  # Shortcut / Duplicate of "uc_subprocess".
+    locale=None,  # Shortcut / Duplicate of "locale_code".
     log_cdp=None,  # Shortcut / Duplicate of "log_cdp_events".
+    ad_block=None,  # Shortcut / Duplicate of "ad_block_on".
+    server=None,  # Shortcut / Duplicate of "servername".
+    guest=None,  # Shortcut / Duplicate of "guest_mode".
     wire=None,  # Shortcut / Duplicate of "use_wire".
     pls=None,  # Shortcut / Duplicate of "page_load_strategy".
     sjw=None,  # Shortcut / Duplicate of "skip_js_waits".
+    wfa=None,  # Shortcut / Duplicate of "wait_for_angularjs".
+    cft=None,  # Use "Chrome for Testing"
+    chs=None,  # Use "Chrome-Headless-Shell"
     save_screenshot=None,  # Save a screenshot at the end of each test.
     no_screenshot=None,  # No screenshots saved unless tests directly ask it.
     page_load_strategy=None,  # Set Chrome PLS to "normal", "eager", or "none".
@@ -119,6 +134,130 @@ def SB(
     interval=None,  # SECONDS (Autoplay interval for SB Slides & Tour steps.)
     time_limit=None,  # SECONDS (Safely fail tests that exceed the time limit.)
 ):
+    """
+    * SeleniumBase as a Python Context Manager *
+
+    Example:
+    --------
+    .. code-block:: python
+        from seleniumbase import SB
+
+        with SB() as sb:  # Many args! Eg. SB(browser="edge")
+            sb.open("https://google.com/ncr")
+            sb.type('[name="q"]', "SeleniumBase on GitHub")
+            sb.submit('[name="q"]')
+            sb.click('a[href*="github.com/seleniumbase"]')
+            sb.highlight("div.Layout-main")
+            sb.highlight("div.Layout-sidebar")
+            sb.sleep(0.5)
+
+    Optional Parameters:
+    --------------------
+    test (bool):  Test Mode: Output, Logging, Continue on failure unless "rtf".
+    rtf (bool):  Shortcut / Duplicate of "raise_test_failure".
+    raise_test_failure (bool):  If "test" mode, raise Exception on 1st failure.
+    browser (str):  Choose from "chrome", "edge", "firefox", or "safari".
+    headless (bool):  Use the default headless mode for Chromium and Firefox.
+    headless1 (bool):  Use Chromium's old headless mode. (Fast, but limited)
+    headless2 (bool):  Use Chromium's new headless mode. (Has more features)
+    locale_code (str):  Set the Language Locale Code for the web browser.
+    protocol (str):  The Selenium Grid protocol: "http" or "https".
+    servername (str):  The Selenium Grid server/IP used for tests.
+    port (int):  The Selenium Grid port used by the test server.
+    proxy (str):  Use proxy. Format: "SERVER:PORT" or "USER:PASS@SERVER:PORT".
+    proxy_bypass_list (str):  Skip proxy when using the listed domains.
+    proxy_pac_url (str):  Use PAC file. (Format: URL or USERNAME:PASSWORD@URL)
+    multi_proxy (bool):  # Allow multiple proxies with auth when multithreaded.
+    agent (str):  Modify the web browser's User-Agent string.
+    cap_file (str):  The desired capabilities to use with a Selenium Grid.
+    cap_string (str):  The desired capabilities to use with a Selenium Grid.
+    recorder_ext (bool):  Enables the SeleniumBase Recorder Chromium extension.
+    disable_cookies (bool):  Disable Cookies on websites. (Pages might break!)
+    disable_js (bool):  Disable JavaScript on websites. (Pages might break!)
+    disable_csp (bool):  Disable the Content Security Policy of websites.
+    enable_ws (bool):  Enable Web Security on Chromium-based browsers.
+    enable_sync (bool):  Enable "Chrome Sync" on websites.
+    use_auto_ext (bool):  Use Chrome's automation extension.
+    undetectable (bool):  Use undetected-chromedriver to evade bot-detection.
+    uc_cdp_events (bool):  Capture CDP events in undetected-chromedriver mode.
+    uc_subprocess (bool):  Use undetected-chromedriver as a subprocess.
+    log_cdp_events (bool):  Capture {"performance": "ALL", "browser": "ALL"}
+    incognito (bool):  Enable Chromium's Incognito mode.
+    guest_mode (bool):  Enable Chromium's Guest mode.
+    dark_mode (bool):  Enable Chromium's Dark mode.
+    devtools (bool):  Open Chromium's DevTools when the browser opens.
+    remote_debug (bool):  Enable Chrome's Debugger on "http://localhost:9222".
+    enable_3d_apis (bool):  Enable WebGL and 3D APIs.
+    swiftshader (bool):  Chrome: --use-gl=angle / --use-angle=swiftshader-webgl
+    ad_block_on (bool):  Block some types of display ads from loading.
+    host_resolver_rules (str):  Set host-resolver-rules, comma-separated.
+    block_images (bool):  Block images from loading during tests.
+    do_not_track (bool):  Tell websites that you don't want to be tracked.
+    chromium_arg (str):  "ARG=N,ARG2" (Set Chromium args, ","-separated.)
+    firefox_arg (str):  "ARG=N,ARG2" (Set Firefox args, comma-separated.)
+    firefox_pref (str):  SET (Set Firefox PREFERENCE:VALUE set, ","-separated)
+    user_data_dir (str):  Set the Chrome user data directory to use.
+    extension_zip (str):  Load a Chrome Extension .zip|.crx, comma-separated.
+    extension_dir (str):  Load a Chrome Extension directory, comma-separated.
+    disable_features (str):  "F1,F2" (Disable Chrome features, ","-separated.)
+    binary_location (str):  Set path of the Chromium browser binary to use.
+    driver_version (str):  Set the chromedriver or uc_driver version to use.
+    skip_js_waits (bool):  Skip JS Waits (readyState=="complete" and Angular).
+    wait_for_angularjs (bool):  Wait for AngularJS to load after some actions.
+    use_wire (bool):  Use selenium-wire's webdriver over selenium webdriver.
+    external_pdf (bool):  Set Chrome "plugins.always_open_pdf_externally":True.
+    window_position (x,y):  Set the browser's starting window position: "X,Y"
+    window_size (w,h):  Set the browser's starting window size: "Width,Height"
+    is_mobile (bool):  Use the mobile device emulator while running tests.
+    mobile (bool):  Shortcut / Duplicate of "is_mobile".
+    device_metrics (w,h,pr):  Mobile metrics: "CSSWidth,CSSHeight,PixelRatio"
+    xvfb (bool):  Run tests using the Xvfb virtual display server on Linux OS.
+    xvfb_metrics (w,h):  Set Xvfb display size on Linux: "Width,Height".
+    start_page (str):  The starting URL for the web browser when tests begin.
+    rec_print (bool):  If Recorder is enabled, prints output after tests end.
+    rec_behave (bool):  Like Recorder Mode, but also generates behave-gherkin.
+    record_sleep (bool):  If Recorder enabled, also records self.sleep calls.
+    data (str):  Extra test data. Access with "self.data" in tests.
+    var1 (str):  Extra test data. Access with "self.var1" in tests.
+    var2 (str):  Extra test data. Access with "self.var2" in tests.
+    var3 (str):  Extra test data. Access with "self.var3" in tests.
+    variables (dict):  Extra test data. Access with "self.variables".
+    account (str):  Set account. Access with "self.account" in tests.
+    environment (str):  Set the test env. Access with "self.env" in tests.
+    headed (bool):  Run tests in headed/GUI mode on Linux, where not default.
+    maximize (bool):  Start tests with the browser window maximized.
+    disable_ws (bool):  Reverse of "enable_ws". (None and False are different)
+    disable_beforeunload (bool):  Disable the "beforeunload" event on Chromium.
+    settings_file (str):  A file for overriding default SeleniumBase settings.
+    position (x,y):  Shortcut / Duplicate of "window_position".
+    size (w,h):  Shortcut / Duplicate of "window_size".
+    uc (bool):  Shortcut / Duplicate of "undetectable".
+    undetected (bool):  Shortcut / Duplicate of "undetectable".
+    uc_cdp (bool):  Shortcut / Duplicate of "uc_cdp_events".
+    uc_sub (bool):  Shortcut / Duplicate of "uc_subprocess".
+    locale (str):  Shortcut / Duplicate of "locale_code".
+    log_cdp (bool):  Shortcut / Duplicate of "log_cdp_events".
+    ad_block (bool):  Shortcut / Duplicate of "ad_block_on".
+    server (str):  Shortcut / Duplicate of "servername".
+    guest (bool):  Shortcut / Duplicate of "guest_mode".
+    wire (bool):  Shortcut / Duplicate of "use_wire".
+    pls (str):  Shortcut / Duplicate of "page_load_strategy".
+    sjw (bool):  Shortcut / Duplicate of "skip_js_waits".
+    wfa (bool):  Shortcut / Duplicate of "wait_for_angularjs".
+    save_screenshot (bool):  Save a screenshot at the end of each test.
+    no_screenshot (bool):  No screenshots saved unless tests directly ask it.
+    page_load_strategy (str):  Set Chrome PLS to "normal", "eager", or "none".
+    timeout_multiplier (float):  Multiplies the default timeout values.
+    js_checking_on (bool):  Check for JavaScript errors after page loads.
+    slow (bool):  Slow down the automation. Faster than using Demo Mode.
+    demo (bool):  Slow down and visually see test actions as they occur.
+    demo_sleep (float):  SECONDS (Set wait time after Slow & Demo Mode actions)
+    message_duration (float):  SECONDS (The time length for Messenger alerts.)
+    highlights (int):  Number of highlight animations for Demo Mode actions.
+    interval (float):  SECONDS (Autoplay interval for SB Slides & Tour steps.)
+    time_limit (float):  SECONDS (Safely fail tests that exceed the time limit)
+    """
+    import colorama
     import os
     import sys
     import time
@@ -131,36 +270,40 @@ def SB(
 
     sb_config_backup = sb_config
     sb_config._do_sb_post_mortem = False
-    is_windows = shared_utils.is_windows()
     sys_argv = sys.argv
     arg_join = " ".join(sys_argv)
     archive_logs = False
     existing_runner = False
+    collect_only = ("--co" in sys_argv or "--collect-only" in sys_argv)
+    all_scripts = (hasattr(sb_config, "all_scripts") and sb_config.all_scripts)
     do_log_folder_setup = False  # The first "test=True" run does it
+    inner_test = False
     if (
         (hasattr(sb_config, "is_behave") and sb_config.is_behave)
         or (hasattr(sb_config, "is_pytest") and sb_config.is_pytest)
         or (hasattr(sb_config, "is_nosetest") and sb_config.is_nosetest)
     ):
         existing_runner = True
+        if test:
+            inner_test = True
         test = False  # Already using a test runner. Skip extra test steps.
     elif test is None and "--test" in sys_argv:
         test = True
-    if (
-        existing_runner
-        and not hasattr(sb_config, "_context_of_runner")
-    ):
-        sb_config._context_of_runner = True
+    if existing_runner and not hasattr(sb_config, "_context_of_runner"):
         if hasattr(sb_config, "is_pytest") and sb_config.is_pytest:
-            print(
-                "\n  SB Manager script was triggered by pytest collection!"
-                '\n  (Prevent that by using: `if __name__ == "__main__":`)'
-            )
+            import pytest
+            msg = "Skipping `SB()` script. (Use `python`, not `pytest`)"
+            if not collect_only and not all_scripts:
+                print("\n  *** %s" % msg)
+            if collect_only or not all_scripts:
+                pytest.skip(allow_module_level=True)
         elif hasattr(sb_config, "is_nosetest") and sb_config.is_nosetest:
             raise Exception(
                 "\n  SB Manager script was triggered by nosetest collection!"
                 '\n  (Prevent that by using: ``if __name__ == "__main__":``)'
             )
+    elif existing_runner:
+        sb_config._context_of_runner = True
     if (
         not existing_runner
         and not hasattr(sb_config, "_has_older_context")
@@ -273,6 +416,13 @@ def SB(
             headless = True
         else:
             headless = False
+    if headless1 is None:
+        if "--headless1" in sys_argv:
+            headless1 = True
+        else:
+            headless1 = False
+    if headless1:
+        headless = True
     if headless2 is None:
         if "--headless2" in sys_argv:
             headless2 = True
@@ -280,6 +430,8 @@ def SB(
             headless2 = False
     if protocol is None:
         protocol = "http"  # For the Selenium Grid only!
+    if server is not None and servername is None:
+        servername = server
     if servername is None:
         servername = "localhost"  # For the Selenium Grid only!
     if port is None:
@@ -291,6 +443,8 @@ def SB(
             incognito = True
         else:
             incognito = False
+    if guest is not None and guest_mode is None:
+        guest_mode = guest
     if guest_mode is None:
         if "--guest" in sys_argv:
             guest_mode = True
@@ -328,29 +482,130 @@ def SB(
                 proxy_string = proxy_string[1:-1]
     c_a = chromium_arg
     if c_a is None and "--chromium-arg" in arg_join:
-        if "--chromium-arg=" in arg_join:
-            c_a = arg_join.split("--chromium-arg=")[1].split(" ")[0]
-        elif "--chromium-arg " in arg_join:
-            c_a = arg_join.split("--chromium-arg ")[1].split(" ")[0]
-        if c_a:
-            if c_a.startswith('"') and c_a.endswith('"'):
-                c_a = c_a[1:-1]
-            elif c_a.startswith("'") and c_a.endswith("'"):
-                c_a = c_a[1:-1]
+        count = 0
+        for arg in sys_argv:
+            if arg.startswith("--chromium-arg="):
+                c_a = arg.split("--chromium-arg=")[1]
+                break
+            elif arg == "--chromium-arg" and len(sys_argv) > count + 1:
+                c_a = sys_argv[count + 1]
+                if c_a.startswith("-"):
+                    c_a = None
+                break
+            count += 1
     chromium_arg = c_a
     d_f = disable_features
     if d_f is None and "--disable-features" in arg_join:
-        if "--disable-features=" in arg_join:
-            d_f = arg_join.split("--disable-features=")[1].split(" ")[0]
-        elif "--disable-features " in arg_join:
-            d_f = arg_join.split("--disable-features ")[1].split(" ")[0]
-        if d_f:
-            if d_f.startswith('"') and d_f.endswith('"'):
-                d_f = d_f[1:-1]
-            elif c_a.startswith("'") and d_f.endswith("'"):
-                d_f = d_f[1:-1]
+        count = 0
+        for arg in sys_argv:
+            if arg.startswith("--disable-features="):
+                d_f = arg.split("--disable-features=")[1]
+                break
+            elif arg == "--disable-features" and len(sys_argv) > count + 1:
+                d_f = sys_argv[count + 1]
+                if d_f.startswith("-"):
+                    d_f = None
+                break
+            count += 1
     disable_features = d_f
+    if window_position is None and position is not None:
+        window_position = position
+    w_p = window_position
+    if (
+        w_p is None
+        and ("--window-position" in arg_join or "--position" in arg_join)
+    ):
+        count = 0
+        for arg in sys_argv:
+            if arg.startswith("--window-position="):
+                w_p = arg.split("--window-position=")[1]
+                break
+            elif arg == "--window-position" and len(sys_argv) > count + 1:
+                w_p = sys_argv[count + 1]
+                if w_p.startswith("-"):
+                    w_p = None
+                break
+            count += 1
+    window_position = w_p
+    if window_size is None and size is not None:
+        window_size = size
+    w_s = window_size
+    if w_s is None and "--window-size" in arg_join:
+        count = 0
+        for arg in sys_argv:
+            if arg.startswith("--window-size="):
+                w_s = arg.split("--window-size=")[1]
+                break
+            elif arg == "--window-size" and len(sys_argv) > count + 1:
+                w_s = sys_argv[count + 1]
+                if w_s.startswith("-"):
+                    w_s = None
+                break
+            count += 1
+    window_size = w_s
+    x_m = xvfb_metrics
+    if x_m is None and "--xvfb-metrics" in arg_join:
+        count = 0
+        for arg in sys_argv:
+            if arg.startswith("--xvfb-metrics="):
+                x_m = arg.split("--xvfb-metrics=")[1]
+                break
+            elif arg == "--xvfb-metrics" and len(sys_argv) > count + 1:
+                x_m = sys_argv[count + 1]
+                if x_m.startswith("-"):
+                    x_m = None
+                break
+            count += 1
+    xvfb_metrics = x_m
+    if agent is None and "--agent" in arg_join:
+        count = 0
+        for arg in sys_argv:
+            if arg.startswith("--agent="):
+                agent = arg.split("--agent=")[1]
+                break
+            elif arg == "--agent" and len(sys_argv) > count + 1:
+                agent = sys_argv[count + 1]
+                if agent.startswith("-"):
+                    agent = None
+                break
+            count += 1
     user_agent = agent
+    found_bl = None
+    if binary_location is None and "--binary-location" in arg_join:
+        count = 0
+        for arg in sys_argv:
+            if arg.startswith("--binary-location="):
+                found_bl = arg.split("--binary-location=")[1]
+                break
+            elif arg == "--binary-location" and len(sys_argv) > count + 1:
+                found_bl = sys_argv[count + 1]
+                if found_bl.startswith("-"):
+                    found_bl = None
+                break
+            count += 1
+        if found_bl:
+            binary_location = found_bl
+    if binary_location is None and "--bl=" in arg_join:
+        for arg in sys_argv:
+            if arg.startswith("--bl="):
+                binary_location = arg.split("--bl=")[1]
+                break
+    if cft and not binary_location:
+        binary_location = "cft"
+    elif chs and not binary_location:
+        binary_location = "chs"
+    if "--cft" in sys_argv and not binary_location:
+        binary_location = "cft"
+    elif "--chs" in sys_argv and not binary_location:
+        binary_location = "chs"
+    if (
+        binary_location
+        and binary_location.lower() == "chs"
+        and browser == "chrome"
+    ):
+        headless = True
+        headless1 = False
+        headless2 = False
     recorder_mode = False
     if recorder_ext:
         recorder_mode = True
@@ -376,73 +631,14 @@ def SB(
             record_sleep = True
         else:
             record_sleep = False
+    if xvfb is None:
+        if "--xvfb" in sys_argv:
+            xvfb = True
+        else:
+            xvfb = False
     if not shared_utils.is_linux():
         # The Xvfb virtual display server is for Linux OS Only!
         xvfb = False
-    if (
-        shared_utils.is_linux()
-        and not headed
-        and not headless
-        and not headless2
-        and not xvfb
-    ):
-        headless = True
-    if headless2 and browser == "firefox":
-        headless2 = False  # Only for Chromium browsers
-        headless = True  # Firefox has regular headless
-    elif browser not in ["chrome", "edge"]:
-        headless2 = False  # Only for Chromium browsers
-    if not headless and not headless2:
-        headed = True
-    if rec_print and not recorder_mode:
-        recorder_mode = True
-        recorder_ext = True
-    elif rec_behave and not recorder_mode:
-        recorder_mode = True
-        recorder_ext = True
-    elif record_sleep and not recorder_mode:
-        recorder_mode = True
-        recorder_ext = True
-    if recorder_mode and headless:
-        headless = False
-        headless2 = True
-    sb_config.proxy_driver = False
-    if "--proxy-driver" in sys_argv or "--proxy_driver" in sys_argv:
-        sb_config.proxy_driver = True
-    if variables and type(variables) is str and len(variables) > 0:
-        import ast
-        bad_input = False
-        if (
-            not variables.startswith("{")
-            or not variables.endswith("}")
-        ):
-            bad_input = True
-        else:
-            try:
-                variables = ast.literal_eval(variables)
-                if not type(variables) is dict:
-                    bad_input = True
-            except Exception:
-                bad_input = True
-        if bad_input:
-            raise Exception(
-                '\nExpecting a Python dictionary for "variables"!'
-                "\nEg. --variables=\"{'KEY1':'VALUE', 'KEY2':123}\""
-            )
-    else:
-        variables = {}
-    if disable_csp is None:
-        disable_csp = False
-    if (
-        (enable_ws is None and disable_ws is None)
-        or (disable_ws is not None and not disable_ws)
-        or (enable_ws is not None and enable_ws)
-    ):
-        enable_ws = True
-        disable_ws = False
-    else:
-        enable_ws = False
-        disable_ws = True
     if (
         undetectable
         or undetected
@@ -453,11 +649,7 @@ def SB(
         or uc_sub
     ):
         undetectable = True
-    if (
-        (undetectable or undetected or uc)
-        and (uc_subprocess is None)
-        and (uc_sub is None)
-    ):
+    if undetectable or undetected or uc:
         uc_subprocess = True  # Use UC as a subprocess by default.
     elif (
         "--undetectable" in sys_argv
@@ -498,6 +690,105 @@ def SB(
         uc_cdp_events = True
     else:
         uc_cdp_events = False
+    if undetectable and browser != "chrome":
+        message = (
+            '\n  Undetected-Chromedriver Mode ONLY supports Chrome!'
+            '\n  ("uc=True" / "undetectable=True" / "--uc")'
+            '\n  (Your browser choice was: "%s".)'
+            '\n  (Will use "%s" without UC Mode.)\n' % (browser, browser)
+        )
+        print(message)
+    if headed is None:
+        # Override the default headless mode on Linux if set.
+        if "--gui" in sys_argv or "--headed" in sys_argv:
+            headed = True
+        else:
+            headed = False
+    if (
+        shared_utils.is_linux()
+        and not headed
+        and not headless
+        and not headless2
+        and not xvfb
+    ):
+        if not undetectable:
+            headless = True
+        else:
+            xvfb = True
+    if headless2 and browser == "firefox":
+        headless2 = False  # Only for Chromium browsers
+        headless = True  # Firefox has regular headless
+    elif browser not in ["chrome", "edge"]:
+        headless2 = False  # Only for Chromium browsers
+    if not headless and not headless2:
+        headed = True
+    if rec_print and not recorder_mode:
+        recorder_mode = True
+        recorder_ext = True
+    elif rec_behave and not recorder_mode:
+        recorder_mode = True
+        recorder_ext = True
+    elif record_sleep and not recorder_mode:
+        recorder_mode = True
+        recorder_ext = True
+    if recorder_mode and headless:
+        headless = False
+        headless1 = False
+        headless2 = True
+    sb_config.proxy_driver = False
+    if "--proxy-driver" in sys_argv or "--proxy_driver" in sys_argv:
+        sb_config.proxy_driver = True
+    if variables and isinstance(variables, str) and len(variables) > 0:
+        import ast
+        bad_input = False
+        if (
+            not variables.startswith("{")
+            or not variables.endswith("}")
+        ):
+            bad_input = True
+        else:
+            try:
+                variables = ast.literal_eval(variables)
+                if not isinstance(variables, dict):
+                    bad_input = True
+            except Exception:
+                bad_input = True
+        if bad_input:
+            raise Exception(
+                '\nExpecting a Python dictionary for "variables"!'
+                "\nEg. --variables=\"{'KEY1':'VALUE', 'KEY2':123}\""
+            )
+    else:
+        variables = {}
+    if disable_csp is None:
+        if (
+            "--disable-csp" in sys_argv
+            or "--no-csp" in sys_argv
+            or "--dcsp" in sys_argv
+        ):
+            disable_csp = True
+        else:
+            disable_csp = False
+    if (
+        (enable_ws is None and disable_ws is None)
+        and (
+            "--disable-web-security" in sys_argv
+            or "--disable-ws" in sys_argv
+            or "--dws" in sys_argv
+        )
+    ):
+        enable_ws = False
+        disable_ws = True
+    elif (
+        (enable_ws is None and disable_ws is None)
+        or (disable_ws is not None and not disable_ws)
+        or (enable_ws is not None and enable_ws)
+    ):
+        enable_ws = True
+        disable_ws = False
+    else:
+        enable_ws = False
+        disable_ws = True
     if log_cdp_events is None and log_cdp is None:
         if (
             "--log-cdp-events" in sys_argv
@@ -517,6 +808,11 @@ def SB(
             use_auto_ext = True
         else:
             use_auto_ext = False
+    if disable_cookies is None:
+        if "--disable-cookies" in sys_argv:
+            disable_cookies = True
+        else:
+            disable_cookies = False
     if disable_js is None:
         if "--disable-js" in sys_argv:
             disable_js = True
@@ -530,6 +826,13 @@ def SB(
         _disable_beforeunload = True
     if pls is not None and page_load_strategy is None:
         page_load_strategy = pls
+    if not page_load_strategy and "--pls=" in arg_join:
+        if "--pls=none" in sys_argv or '--pls="none"' in sys_argv:
+            page_load_strategy = "none"
+        elif "--pls=eager" in sys_argv or '--pls="eager"' in sys_argv:
+            page_load_strategy = "eager"
+        elif "--pls=normal" in sys_argv or '--pls="normal"' in sys_argv:
+            page_load_strategy = "normal"
     if page_load_strategy is not None:
         if page_load_strategy.lower() not in ["normal", "eager", "none"]:
             raise Exception(
@@ -553,6 +856,17 @@ def SB(
             settings.SKIP_JS_WAITS = True
     elif skip_js_waits:
         settings.SKIP_JS_WAITS = skip_js_waits
+    if wfa is not None and wait_for_angularjs is None:
+        wait_for_angularjs = wfa
+    if wait_for_angularjs is None:
+        if (
+            "--wfa" in sys_argv
+            or "--wait_for_angularjs" in sys_argv
+            or "--wait-for-angularjs" in sys_argv
+        ):
+            settings.WAIT_FOR_ANGULARJS = True
+    elif wait_for_angularjs:
+        settings.WAIT_FOR_ANGULARJS = wait_for_angularjs
     if save_screenshot is None:
         if (
             "--screenshot" in sys_argv
@@ -571,6 +885,7 @@ def SB(
         save_screenshot = False  # "no_screenshot" has priority
     if browser == "safari" and headless:
         headless = False  # Safari doesn't support headless mode
+        headless1 = False
     if js_checking_on is None:
         if "--check-js" in sys_argv:
             js_checking_on = True
@@ -625,6 +940,10 @@ def SB(
             swiftshader = True
         else:
             swiftshader = False
+    if locale is not None and locale_code is None:
+        locale_code = locale
+    if ad_block is not None and ad_block_on is None:
+        ad_block_on = ad_block
     if ad_block_on is None:
         if "--ad-block" in sys_argv or "--ad_block" in sys_argv:
             ad_block_on = True
@@ -639,15 +958,30 @@ def SB(
             host_resolver_rules = (
                 arg_join.split("--host_resolver_rules=")[1].split('"')[0]
             )
-    if driver_version is None:
-        if "--driver-version=" in arg_join:
-            driver_version = (
-                arg_join.split("--driver-version=")[1].split(" ")[0]
-            )
-        elif "--driver_version=" in arg_join:
-            driver_version = (
-                arg_join.split("--driver_version=")[1].split(" ")[0]
-            )
+    if driver_version is None and "--driver-version" in arg_join:
+        count = 0
+        for arg in sys_argv:
+            if arg.startswith("--driver-version="):
+                driver_version = arg.split("--driver-version=")[1]
+                break
+            elif arg == "--driver-version" and len(sys_argv) > count + 1:
+                driver_version = sys_argv[count + 1]
+                if driver_version.startswith("-"):
+                    driver_version = None
+                break
+            count += 1
+    if driver_version is None and "--driver_version" in arg_join:
+        count = 0
+        for arg in sys_argv:
+            if arg.startswith("--driver_version="):
+                driver_version = arg.split("--driver_version=")[1]
+                break
+            elif arg == "--driver_version" and len(sys_argv) > count + 1:
+                driver_version = sys_argv[count + 1]
+                if driver_version.startswith("-"):
+                    driver_version = None
+                break
+            count += 1
     if highlights is not None:
         try:
             highlights = int(highlights)
@@ -674,9 +1008,11 @@ def SB(
         sb_config.is_nosetest = False
     sb_config.is_context_manager = True
     sb_config.headless = headless
+    sb_config.headless1 = headless1
     sb_config.headless2 = headless2
     sb_config.headed = headed
     sb_config.xvfb = xvfb
+    sb_config.xvfb_metrics = xvfb_metrics
     sb_config.start_page = start_page
     sb_config.locale_code = locale_code
     sb_config.protocol = protocol
@@ -713,13 +1049,15 @@ def SB(
     sb_config.log_cdp_events = log_cdp_events
     sb_config.no_sandbox = None
     sb_config.disable_gpu = None
+    sb_config.disable_cookies = disable_cookies
     sb_config.disable_js = disable_js
     sb_config._multithreaded = False
     sb_config.reuse_session = False
     sb_config.crumbs = False
     sb_config.final_debug = False
     sb_config.visual_baseline = False
-    sb_config.window_size = None
+    sb_config.window_position = window_position
+    sb_config.window_size = window_size
     sb_config.maximize_option = maximize_option
     sb_config._disable_beforeunload = _disable_beforeunload
     sb_config.save_screenshot = save_screenshot
@@ -777,9 +1115,11 @@ def SB(
     sb.is_nosetest = False
     sb.is_context_manager = sb_config.is_context_manager
     sb.headless = sb_config.headless
+    sb.headless1 = sb_config.headless1
     sb.headless2 = sb_config.headless2
     sb.headed = sb_config.headed
     sb.xvfb = sb_config.xvfb
+    sb.xvfb_metrics = sb_config.xvfb_metrics
     sb.start_page = sb_config.start_page
     sb.locale_code = sb_config.locale_code
     sb.protocol = sb_config.protocol
@@ -818,12 +1158,14 @@ def SB(
     sb.log_cdp_events = sb_config.log_cdp_events
     sb.no_sandbox = sb_config.no_sandbox
     sb.disable_gpu = sb_config.disable_gpu
+    sb.disable_cookies = sb_config.disable_cookies
     sb.disable_js = sb_config.disable_js
     sb._multithreaded = sb_config._multithreaded
     sb._reuse_session = sb_config.reuse_session
     sb._crumbs = sb_config.crumbs
     sb._final_debug = sb_config.final_debug
     sb.visual_baseline = sb_config.visual_baseline
+    sb.window_position = sb_config.window_position
     sb.window_size = sb_config.window_size
     sb.maximize_option = sb_config.maximize_option
     sb._disable_beforeunload = sb_config._disable_beforeunload
@@ -879,11 +1221,6 @@ def SB(
     test_name = None
     terminal_width = shared_utils.get_terminal_width()
     if test:
-        import colorama
-        if is_windows and hasattr(colorama, "just_fix_windows_console"):
-            colorama.just_fix_windows_console()
-        else:
-            colorama.init(autoreset=True)
         c1 = colorama.Fore.GREEN
         b1 = colorama.Style.BRIGHT
         cr = colorama.Style.RESET_ALL
@@ -906,7 +1243,7 @@ def SB(
         from seleniumbase.core import download_helper
         from seleniumbase.core import proxy_helper
 
-        log_helper.log_folder_setup(constants.Logs.LATEST + "/")
+        log_helper.log_folder_setup(constants.Logs.LATEST + os.sep)
         log_helper.clear_empty_logs()
         download_helper.reset_downloads_folder()
         if not sb_config.multi_proxy:
@@ -926,13 +1263,16 @@ def SB(
         sb._has_failure = True
         exception = e
         test_passed = False
-        if not test_name:
+        if (test or inner_test) and not test_name:
+            print(e)
+            return
+        elif not test_name:
             raise
         else:
             the_traceback = traceback.format_exc().strip()
             try:
                 p2 = the_traceback.split(', in ')[1].split('", line ')[0]
-                filename = p2.split("/")[-1]
+                filename = p2.split(os.sep)[-1]
                 sb.cm_filename = filename
             except Exception:
                 sb.cm_filename = None
@@ -954,13 +1294,24 @@ def SB(
             print(traceback.format_exc().strip())
             if test and not test_passed:
                 print("********** ERROR: The test AND the tearDown() FAILED!")
+        if (
+            hasattr(sb_config, "_virtual_display")
+            and sb_config._virtual_display
+            and hasattr(sb_config._virtual_display, "stop")
+        ):
+            try:
+                sb_config._virtual_display.stop()
+                sb_config._virtual_display = None
+                sb_config.headless_active = False
+            except AttributeError:
+                pass
+            except Exception:
+                pass
         end_time = time.time()
         run_time = end_time - start_time
         sb_config = sb_config_backup
         if test:
             sb_config._has_older_context = True
-        if existing_runner:
-            sb_config._context_of_runner = True
         if test_name:
             result = "passed"
             if test and not test_passed:

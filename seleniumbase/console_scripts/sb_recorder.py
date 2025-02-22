@@ -9,6 +9,7 @@ Usage:
 
 Options:
     --uc / --undetected  (Use undetectable mode.)
+    --cdp  (Same as "--uc" and "--undetectable".)
     --behave  (Also output Behave/Gherkin files.)
 
 Output:
@@ -18,23 +19,23 @@ import colorama
 import os
 import subprocess
 import sys
+import tkinter as tk
 from seleniumbase import config as sb_config
 from seleniumbase.fixtures import page_utils
 from seleniumbase.fixtures import shared_utils
+from tkinter import messagebox
 
 sb_config.rec_subprocess_p = None
 sb_config.rec_subprocess_used = False
 sys_executable = sys.executable
 if " " in sys_executable:
     sys_executable = "python"
-if sys.version_info <= (3, 7):
+if sys.version_info <= (3, 8):
     current_version = ".".join(str(ver) for ver in sys.version_info[:3])
     raise Exception(
-        "\n* Recorder Desktop requires Python 3.7 or newer!"
+        "\n* Recorder Desktop requires Python 3.8 or newer!"
         "\n*** You are currently using Python %s" % current_version
     )
-import tkinter as tk  # noqa: E402
-from tkinter import messagebox  # noqa: E402
 
 
 def set_colors(use_colors):
@@ -45,13 +46,6 @@ def set_colors(use_colors):
     c4 = ""
     cr = ""
     if use_colors:
-        if (
-            "win32" in sys.platform
-            and hasattr(colorama, "just_fix_windows_console")
-        ):
-            colorama.just_fix_windows_console()
-        else:
-            colorama.init(autoreset=True)
         c0 = colorama.Fore.BLUE + colorama.Back.LIGHTCYAN_EX
         c1 = colorama.Fore.BLUE + colorama.Back.LIGHTGREEN_EX
         c2 = colorama.Fore.RED + colorama.Back.LIGHTYELLOW_EX
@@ -158,10 +152,13 @@ def do_recording(file_name, url, overwrite_enabled, use_chrome, window):
             command += " --edge"
         if (
             "--uc" in command_args
+            or "--cdp" in command_args
             or "--undetected" in command_args
             or "--undetectable" in command_args
         ):
             command += " --uc"
+        if "--ee" in command_args:
+            command += " --ee"
         command += add_on
         poll = None
         if sb_config.rec_subprocess_used:
@@ -195,6 +192,14 @@ def do_playback(file_name, use_chrome, window, demo_mode=False):
         command += " --edge"
     if demo_mode:
         command += " --demo"
+    command_args = sys.argv[2:]
+    if (
+        "--uc" in command_args
+        or "--cdp" in command_args
+        or "--undetected" in command_args
+        or "--undetectable" in command_args
+    ):
+        command += " --uc"
     poll = None
     if sb_config.rec_subprocess_used:
         poll = sb_config.rec_subprocess_p.poll()

@@ -18,8 +18,10 @@ By.TAG_NAME            # "tag name"
 By.PARTIAL_LINK_TEXT   # "partial link text"
 """
 import codecs
+import fasteners
 import os
 import time
+from contextlib import suppress
 from selenium.common.exceptions import ElementNotInteractableException
 from selenium.common.exceptions import ElementNotVisibleException
 from selenium.common.exceptions import NoAlertPresentException
@@ -32,6 +34,7 @@ from selenium.webdriver.common.keys import Keys
 from seleniumbase.common.exceptions import LinkTextNotFoundException
 from seleniumbase.common.exceptions import TextNotVisibleException
 from seleniumbase.config import settings
+from seleniumbase.fixtures import constants
 from seleniumbase.fixtures import page_utils
 from seleniumbase.fixtures import shared_utils
 
@@ -46,6 +49,8 @@ def is_element_present(driver, selector, by="css selector"):
     @Returns
     Boolean (is element present)
     """
+    if __is_cdp_swap_needed(driver):
+        return driver.cdp.is_element_present(selector)
     selector, by = page_utils.swap_selector_and_by_if_reversed(selector, by)
     try:
         driver.find_element(by=by, value=selector)
@@ -64,6 +69,8 @@ def is_element_visible(driver, selector, by="css selector"):
     @Returns
     Boolean (is element visible)
     """
+    if __is_cdp_swap_needed(driver):
+        return driver.cdp.is_element_visible(selector)
     selector, by = page_utils.swap_selector_and_by_if_reversed(selector, by)
     try:
         element = driver.find_element(by=by, value=selector)
@@ -82,6 +89,7 @@ def is_element_clickable(driver, selector, by="css selector"):
     @Returns
     Boolean (is element clickable)
     """
+    _reconnect_if_disconnected(driver)
     try:
         element = driver.find_element(by=by, value=selector)
         if element.is_displayed() and element.is_enabled():
@@ -101,6 +109,7 @@ def is_element_enabled(driver, selector, by="css selector"):
     @Returns
     Boolean (is element enabled)
     """
+    _reconnect_if_disconnected(driver)
     try:
         element = driver.find_element(by=by, value=selector)
         return element.is_enabled()
@@ -108,9 +117,7 @@ def is_element_enabled(driver, selector, by="css selector"):
         return False
 
 
-def is_text_visible(
-    driver, text, selector="html", by="css selector", browser=None
-):
+def is_text_visible(driver, text, selector="html", by="css selector"):
     """
     Returns whether the text substring is visible in the given selector.
     @Params
@@ -121,12 +128,13 @@ def is_text_visible(
     @Returns
     Boolean (is text visible)
     """
+    _reconnect_if_disconnected(driver)
     selector, by = page_utils.swap_selector_and_by_if_reversed(selector, by)
     text = str(text)
     try:
         element = driver.find_element(by=by, value=selector)
         element_text = element.text
-        if browser == "safari":
+        if shared_utils.is_safari(driver):
             if element.tag_name.lower() in ["input", "textarea"]:
                 element_text = element.get_attribute("value")
             else:
@@ -138,13 +146,7 @@ def is_text_visible(
         return False
 
 
-def is_exact_text_visible(
-    driver,
-    text,
-    selector,
-    by="css selector",
-    browser=None
-):
+def is_exact_text_visible(driver, text, selector, by="css selector"):
     """
     Returns whether the exact text is visible in the given selector.
     (Ignores leading and trailing whitespace)
@@ -156,12 +158,13 @@ def is_exact_text_visible(
     @Returns
     Boolean (is text visible)
     """
+    _reconnect_if_disconnected(driver)
     selector, by = page_utils.swap_selector_and_by_if_reversed(selector, by)
     text = str(text)
     try:
         element = driver.find_element(by=by, value=selector)
         element_text = element.text
-        if browser == "safari":
+        if shared_utils.is_safari(driver):
             if element.tag_name.lower() in ["input", "textarea"]:
                 element_text = element.get_attribute("value")
             else:
@@ -190,6 +193,7 @@ def is_attribute_present(
     @Returns
     Boolean (is attribute present)
     """
+    _reconnect_if_disconnected(driver)
     try:
         element = driver.find_element(by=by, value=selector)
         found_value = element.get_attribute(attribute)
@@ -216,16 +220,11 @@ def is_non_empty_text_visible(driver, selector, by="css selector"):
     @Returns
     Boolean (is any text visible in the element with the selector)
     """
-    browser = None  # Only used for covering a Safari edge case
-    try:
-        if "safari:platformVersion" in driver.capabilities:
-            browser = "safari"
-    except Exception:
-        pass
+    _reconnect_if_disconnected(driver)
     try:
         element = driver.find_element(by=by, value=selector)
         element_text = element.text
-        if browser == "safari":
+        if shared_utils.is_safari(driver):
             if element.tag_name.lower() in ["input", "textarea"]:
                 element_text = element.get_attribute("value")
             else:
@@ -246,6 +245,7 @@ def hover_on_element(driver, selector, by="css selector"):
     selector - the locator for identifying the page element (required)
     by - the type of selector being used (Default: "css selector")
     """
+    _reconnect_if_disconnected(driver)
     element = driver.find_element(by=by, value=selector)
     hover = ActionChains(driver).move_to_element(element)
     hover.perform()
@@ -256,6 +256,7 @@ def hover_element(driver, element):
     """
     Similar to hover_on_element(), but uses found element, not a selector.
     """
+    _reconnect_if_disconnected(driver)
     hover = ActionChains(driver).move_to_element(element)
     hover.perform()
     return element
@@ -287,6 +288,7 @@ def hover_and_click(
     timeout - number of seconds to wait for click element to appear after hover
     js_click - the option to use js_click() instead of click() on the last part
     """
+    _reconnect_if_disconnected(driver)
     start_ms = time.time() * 1000.0
     stop_ms = start_ms + (timeout * 1000.0)
     element = driver.find_element(by=hover_by, value=hover_selector)
@@ -326,6 +328,7 @@ def hover_element_and_click(
     """
     Similar to hover_and_click(), but assumes top element is already found.
     """
+    _reconnect_if_disconnected(driver)
     start_ms = time.time() * 1000.0
     stop_ms = start_ms + (timeout * 1000.0)
     hover = ActionChains(driver).move_to_element(element)
@@ -358,6 +361,7 @@ def hover_element_and_double_click(
     click_by="css selector",
     timeout=settings.SMALL_TIMEOUT,
 ):
+    _reconnect_if_disconnected(driver)
     start_ms = time.time() * 1000.0
     stop_ms = start_ms + (timeout * 1000.0)
     hover = ActionChains(driver).move_to_element(element)
@@ -409,6 +413,7 @@ def wait_for_element_present(
     @Returns
     A web element object
     """
+    _reconnect_if_disconnected(driver)
     element = None
     start_ms = time.time() * 1000.0
     stop_ms = start_ms + (timeout * 1000.0)
@@ -468,6 +473,7 @@ def wait_for_element_visible(
     @Returns
     A web element object
     """
+    _reconnect_if_disconnected(driver)
     element = None
     is_present = False
     start_ms = time.time() * 1000.0
@@ -530,7 +536,6 @@ def wait_for_text_visible(
     selector,
     by="css selector",
     timeout=settings.LARGE_TIMEOUT,
-    browser=None,
 ):
     """
     Searches for the specified element by the given selector. Returns the
@@ -550,6 +555,7 @@ def wait_for_text_visible(
     @Returns
     A web element object that contains the text searched for
     """
+    _reconnect_if_disconnected(driver)
     element = None
     is_present = False
     full_text = None
@@ -564,7 +570,7 @@ def wait_for_text_visible(
             is_present = True
             if (
                 element.tag_name.lower() in ["input", "textarea"]
-                and browser != "safari"
+                and not shared_utils.is_safari(driver)
             ):
                 if (
                     element.is_displayed()
@@ -576,7 +582,7 @@ def wait_for_text_visible(
                         full_text = element.get_property("value").strip()
                     element = None
                     raise Exception()
-            elif browser == "safari":
+            elif shared_utils.is_safari(driver):
                 text_attr = "innerText"
                 if element.tag_name.lower() in ["input", "textarea"]:
                     text_attr = "value"
@@ -641,7 +647,6 @@ def wait_for_exact_text_visible(
     selector,
     by="css selector",
     timeout=settings.LARGE_TIMEOUT,
-    browser=None,
 ):
     """
     Searches for the specified element by the given selector. Returns the
@@ -661,6 +666,7 @@ def wait_for_exact_text_visible(
     @Returns
     A web element object that contains the text searched for
     """
+    _reconnect_if_disconnected(driver)
     element = None
     is_present = False
     actual_text = None
@@ -684,7 +690,7 @@ def wait_for_exact_text_visible(
                         actual_text = element.get_property("value").strip()
                     element = None
                     raise Exception()
-            elif browser == "safari":
+            elif shared_utils.is_safari(driver):
                 text_attr = "innerText"
                 if element.tag_name.lower() in ["input", "textarea"]:
                     text_attr = "value"
@@ -771,6 +777,7 @@ def wait_for_attribute(
     @Returns
     A web element object that contains the expected attribute/value
     """
+    _reconnect_if_disconnected(driver)
     element = None
     element_present = False
     attribute_present = False
@@ -857,6 +864,7 @@ def wait_for_element_clickable(
     @Returns
     A web element object
     """
+    _reconnect_if_disconnected(driver)
     element = None
     is_present = False
     is_visible = False
@@ -951,6 +959,7 @@ def wait_for_element_absent(
     timeout - the time to wait for elements in seconds
     original_selector - handle pre-converted ":contains(TEXT)" selector
     """
+    _reconnect_if_disconnected(driver)
     start_ms = time.time() * 1000.0
     stop_ms = start_ms + (timeout * 1000.0)
     for x in range(int(timeout * 10)):
@@ -998,6 +1007,7 @@ def wait_for_element_not_visible(
     timeout - the time to wait for the element in seconds
     original_selector - handle pre-converted ":contains(TEXT)" selector
     """
+    _reconnect_if_disconnected(driver)
     start_ms = time.time() * 1000.0
     stop_ms = start_ms + (timeout * 1000.0)
     for x in range(int(timeout * 10)):
@@ -1033,10 +1043,9 @@ def wait_for_element_not_visible(
 def wait_for_text_not_visible(
     driver,
     text,
-    selector,
+    selector="html",
     by="css selector",
     timeout=settings.LARGE_TIMEOUT,
-    browser=None,
 ):
     """
     Searches for the text in the element of the given selector on the page.
@@ -1051,12 +1060,13 @@ def wait_for_text_not_visible(
     @Returns
     A web element object that contains the text searched for
     """
+    _reconnect_if_disconnected(driver)
     text = str(text)
     start_ms = time.time() * 1000.0
     stop_ms = start_ms + (timeout * 1000.0)
     for x in range(int(timeout * 10)):
         shared_utils.check_if_time_limit_exceeded()
-        if not is_text_visible(driver, text, selector, by=by, browser=browser):
+        if not is_text_visible(driver, text, selector, by=by):
             return True
         now_ms = time.time() * 1000.0
         if now_ms >= stop_ms:
@@ -1077,10 +1087,9 @@ def wait_for_text_not_visible(
 def wait_for_exact_text_not_visible(
     driver,
     text,
-    selector,
+    selector="html",
     by="css selector",
     timeout=settings.LARGE_TIMEOUT,
-    browser=None,
 ):
     """
     Searches for the text in the element of the given selector on the page.
@@ -1095,14 +1104,13 @@ def wait_for_exact_text_not_visible(
     @Returns
     A web element object that contains the text searched for
     """
+    _reconnect_if_disconnected(driver)
     text = str(text)
     start_ms = time.time() * 1000.0
     stop_ms = start_ms + (timeout * 1000.0)
     for x in range(int(timeout * 10)):
         shared_utils.check_if_time_limit_exceeded()
-        if not is_exact_text_visible(
-            driver, text, selector, by=by, browser=browser
-        ):
+        if not is_exact_text_visible(driver, text, selector, by=by):
             return True
         now_ms = time.time() * 1000.0
         if now_ms >= stop_ms:
@@ -1139,16 +1147,11 @@ def wait_for_non_empty_text_visible(
     @Returns
     The web element object that has text
     """
+    _reconnect_if_disconnected(driver)
     start_ms = time.time() * 1000.0
     stop_ms = start_ms + (timeout * 1000.0)
     element = None
     visible = None
-    browser = None  # Only used for covering a Safari edge case
-    try:
-        if "safari:platformVersion" in driver.capabilities:
-            browser = "safari"
-    except Exception:
-        pass
     for x in range(int(timeout * 10)):
         shared_utils.check_if_time_limit_exceeded()
         try:
@@ -1158,7 +1161,7 @@ def wait_for_non_empty_text_visible(
             if element.is_displayed():
                 visible = True
             element_text = element.text
-            if browser == "safari":
+            if shared_utils.is_safari(driver):
                 if element.tag_name.lower() in ["input", "textarea"]:
                     element_text = element.get_attribute("value")
                 else:
@@ -1251,26 +1254,41 @@ def wait_for_attribute_not_present(
     timeout_exception(Exception, message)
 
 
-def find_visible_elements(driver, selector, by="css selector"):
+def find_visible_elements(driver, selector, by="css selector", limit=0):
     """
     Finds all WebElements that match a selector and are visible.
-    Similar to webdriver.find_elements.
+    Similar to webdriver.find_elements().
+    If "limit" is set and > 0, will only return that many elements.
     @Params
     driver - the webdriver object (required)
     selector - the locator for identifying the page element (required)
     by - the type of selector being used (Default: "css selector")
+    limit - the maximum number of elements to return if > 0.
     """
+    _reconnect_if_disconnected(driver)
     elements = driver.find_elements(by=by, value=selector)
+    if limit and limit > 0 and len(elements) > limit:
+        elements = elements[:limit]
     try:
         v_elems = [element for element in elements if element.is_displayed()]
         return v_elems
     except (StaleElementReferenceException, ElementNotInteractableException):
         time.sleep(0.1)
         elements = driver.find_elements(by=by, value=selector)
+        extra_elements = []
+        if limit and limit > 0 and len(elements) > limit:
+            elements = elements[:limit]
+            extra_elements = elements[limit:]
         v_elems = []
         for element in elements:
             if element.is_displayed():
                 v_elems.append(element)
+        if extra_elements and limit and len(v_elems) < limit:
+            for element in extra_elements:
+                if element.is_displayed():
+                    v_elems.append(element)
+                    if len(v_elems) >= limit:
+                        break
         return v_elems
 
 
@@ -1285,6 +1303,7 @@ def save_screenshot(
     If the folder provided doesn't exist, it will get created.
     The screenshot will be in PNG format: (*.png)
     """
+    _reconnect_if_disconnected(driver)
     if not name.endswith(".png"):
         name = name + ".png"
     if folder:
@@ -1323,6 +1342,8 @@ def save_page_source(driver, name, folder=None):
     """
     from seleniumbase.core import log_helper
 
+    if not __is_cdp_swap_needed(driver):
+        _reconnect_if_disconnected(driver)  # If disconnected without CDP
     if not name.endswith(".html"):
         name = name + ".html"
     if folder:
@@ -1333,7 +1354,11 @@ def save_page_source(driver, name, folder=None):
         html_file_path = os.path.join(file_path, name)
     else:
         html_file_path = name
-    page_source = driver.page_source
+    page_source = None
+    if __is_cdp_swap_needed(driver):
+        page_source = driver.cdp.get_page_source()
+    else:
+        page_source = driver.page_source
     html_file = codecs.open(html_file_path, "w+", "utf-8")
     rendered_source = log_helper.get_html_source_with_base_href(
         driver, page_source
@@ -1349,6 +1374,7 @@ def wait_for_and_accept_alert(driver, timeout=settings.LARGE_TIMEOUT):
     driver - the webdriver object (required)
     timeout - the time to wait for the alert in seconds
     """
+    _reconnect_if_disconnected(driver)
     alert = wait_for_and_switch_to_alert(driver, timeout)
     alert_text = alert.text
     alert.accept()
@@ -1362,6 +1388,7 @@ def wait_for_and_dismiss_alert(driver, timeout=settings.LARGE_TIMEOUT):
     driver - the webdriver object (required)
     timeout - the time to wait for the alert in seconds
     """
+    _reconnect_if_disconnected(driver)
     alert = wait_for_and_switch_to_alert(driver, timeout)
     alert_text = alert.text
     alert.dismiss()
@@ -1377,6 +1404,7 @@ def wait_for_and_switch_to_alert(driver, timeout=settings.LARGE_TIMEOUT):
     driver - the webdriver object (required)
     timeout - the time to wait for the alert in seconds
     """
+    _reconnect_if_disconnected(driver)
     start_ms = time.time() * 1000.0
     stop_ms = start_ms + (timeout * 1000.0)
     for x in range(int(timeout * 10)):
@@ -1404,6 +1432,7 @@ def switch_to_frame(driver, frame, timeout=settings.SMALL_TIMEOUT):
     frame - the frame element, name, id, index, or selector
     timeout - the time to wait for the alert in seconds
     """
+    _reconnect_if_disconnected(driver)
     start_ms = time.time() * 1000.0
     stop_ms = start_ms + (timeout * 1000.0)
     for x in range(int(timeout * 10)):
@@ -1412,19 +1441,17 @@ def switch_to_frame(driver, frame, timeout=settings.SMALL_TIMEOUT):
             driver.switch_to.frame(frame)
             return True
         except Exception:
-            if type(frame) is str:
+            if isinstance(frame, str):
                 by = None
                 if page_utils.is_xpath_selector(frame):
                     by = "xpath"
                 else:
                     by = "css selector"
                 if is_element_visible(driver, frame, by=by):
-                    try:
+                    with suppress(Exception):
                         element = driver.find_element(by=by, value=frame)
                         driver.switch_to.frame(element)
                         return True
-                    except Exception:
-                        pass
             now_ms = time.time() * 1000.0
             if now_ms >= stop_ms:
                 break
@@ -1440,7 +1467,28 @@ def switch_to_frame(driver, frame, timeout=settings.SMALL_TIMEOUT):
     timeout_exception(Exception, message)
 
 
-def switch_to_window(driver, window, timeout=settings.SMALL_TIMEOUT):
+def __switch_to_window(driver, window_handle, uc_lock=True):
+    if (
+        hasattr(driver, "_is_using_uc")
+        and driver._is_using_uc
+        and uc_lock
+    ):
+        gui_lock = fasteners.InterProcessLock(
+            constants.MultiBrowser.PYAUTOGUILOCK
+        )
+        with gui_lock:
+            driver.switch_to.window(window_handle)
+    else:
+        driver.switch_to.window(window_handle)
+    return True
+
+
+def switch_to_window(
+    driver,
+    window,
+    timeout=settings.SMALL_TIMEOUT,
+    uc_lock=True,
+):
     """
     Wait for a window to appear, and switch to it. This should be usable
     as a drop-in replacement for driver.switch_to.window().
@@ -1448,17 +1496,15 @@ def switch_to_window(driver, window, timeout=settings.SMALL_TIMEOUT):
     driver - the webdriver object (required)
     window - the window index or window handle
     timeout - the time to wait for the window in seconds
+    uc_lock - if UC Mode and True, switch_to_window() uses thread-locking
     """
+    _reconnect_if_disconnected(driver)
     if window == -1:
         window = len(driver.window_handles) - 1
     start_ms = time.time() * 1000.0
     stop_ms = start_ms + (timeout * 1000.0)
     if isinstance(window, int):
-        caps = driver.capabilities
-        if (
-            caps["browserName"].lower() == "safari"
-            and "safari:platformVersion" in caps
-        ):
+        if shared_utils.is_safari(driver):
             # Reversed window_handles on Safari
             window = len(driver.window_handles) - 1 - window
             if window < 0:
@@ -1467,7 +1513,7 @@ def switch_to_window(driver, window, timeout=settings.SMALL_TIMEOUT):
             shared_utils.check_if_time_limit_exceeded()
             try:
                 window_handle = driver.window_handles[window]
-                driver.switch_to.window(window_handle)
+                __switch_to_window(driver, window_handle, uc_lock=uc_lock)
                 return True
             except IndexError:
                 now_ms = time.time() * 1000.0
@@ -1488,7 +1534,7 @@ def switch_to_window(driver, window, timeout=settings.SMALL_TIMEOUT):
         for x in range(int(timeout * 10)):
             shared_utils.check_if_time_limit_exceeded()
             try:
-                driver.switch_to.window(window_handle)
+                __switch_to_window(driver, window_handle, uc_lock=uc_lock)
                 return True
             except NoSuchWindowException:
                 now_ms = time.time() * 1000.0
@@ -1508,9 +1554,32 @@ def switch_to_window(driver, window, timeout=settings.SMALL_TIMEOUT):
 
 ############
 
+# Special methods for use with UC Mode
+
+def _reconnect_if_disconnected(driver):
+    if (
+        hasattr(driver, "_is_using_uc")
+        and driver._is_using_uc
+        and hasattr(driver, "is_connected")
+        and not driver.is_connected()
+    ):
+        with suppress(Exception):
+            driver.connect()
+
+
+def __is_cdp_swap_needed(driver):
+    """If the driver is disconnected, use a CDP method when available."""
+    return shared_utils.is_cdp_swap_needed(driver)
+
+
+############
+
 # Support methods for direct use from driver
 
 def open_url(driver, url):
+    if __is_cdp_swap_needed(driver):
+        driver.cdp.open(url)
+        return
     url = str(url).strip()  # Remove leading and trailing whitespace
     if not page_utils.looks_like_a_page_url(url):
         if page_utils.is_valid_url("https://" + url):
@@ -1520,6 +1589,9 @@ def open_url(driver, url):
 
 def click(driver, selector, by="css selector", timeout=settings.SMALL_TIMEOUT):
     selector, by = page_utils.recalculate_selector(selector, by)
+    if __is_cdp_swap_needed(driver):
+        driver.cdp.click(selector)
+        return
     element = wait_for_element_clickable(
         driver, selector, by=by, timeout=timeout
     )
@@ -1527,6 +1599,9 @@ def click(driver, selector, by="css selector", timeout=settings.SMALL_TIMEOUT):
 
 
 def click_link(driver, link_text, timeout=settings.SMALL_TIMEOUT):
+    if __is_cdp_swap_needed(driver):
+        driver.cdp.click_link(link_text)
+        return
     element = wait_for_element_clickable(
         driver, link_text, by="link text", timeout=timeout
     )
@@ -1537,20 +1612,24 @@ def click_if_visible(
     driver, selector, by="css selector", timeout=0
 ):
     selector, by = page_utils.recalculate_selector(selector, by)
+    if __is_cdp_swap_needed(driver):
+        driver.cdp.click_if_visible(selector)
+        return
     if is_element_visible(driver, selector, by=by):
         click(driver, selector, by=by, timeout=1)
     elif timeout > 0:
-        try:
+        with suppress(Exception):
             wait_for_element_visible(
                 driver, selector, by=by, timeout=timeout
             )
-        except Exception:
-            pass
         if is_element_visible(driver, selector, by=by):
             click(driver, selector, by=by, timeout=1)
 
 
 def click_active_element(driver):
+    if __is_cdp_swap_needed(driver):
+        driver.cdp.click_active_element()
+        return
     driver.execute_script("document.activeElement.click();")
 
 
@@ -1558,6 +1637,9 @@ def js_click(
     driver, selector, by="css selector", timeout=settings.SMALL_TIMEOUT
 ):
     selector, by = page_utils.recalculate_selector(selector, by)
+    if __is_cdp_swap_needed(driver):
+        driver.cdp.click(selector)
+        return
     element = wait_for_element_present(
         driver, selector, by=by, timeout=timeout
     )
@@ -1583,6 +1665,9 @@ def send_keys(
     driver, selector, text, by="css selector", timeout=settings.LARGE_TIMEOUT
 ):
     selector, by = page_utils.recalculate_selector(selector, by)
+    if __is_cdp_swap_needed(driver):
+        driver.cdp.send_keys(selector, text)
+        return
     element = wait_for_element_present(
         driver, selector, by=by, timeout=timeout
     )
@@ -1597,6 +1682,9 @@ def press_keys(
     driver, selector, text, by="css selector", timeout=settings.LARGE_TIMEOUT
 ):
     selector, by = page_utils.recalculate_selector(selector, by)
+    if __is_cdp_swap_needed(driver):
+        driver.cdp.press_keys(selector, text)
+        return
     element = wait_for_element_present(
         driver, selector, by=by, timeout=timeout
     )
@@ -1613,6 +1701,9 @@ def update_text(
     driver, selector, text, by="css selector", timeout=settings.LARGE_TIMEOUT
 ):
     selector, by = page_utils.recalculate_selector(selector, by)
+    if __is_cdp_swap_needed(driver):
+        driver.cdp.type(selector, text)
+        return
     element = wait_for_element_clickable(
         driver, selector, by=by, timeout=timeout
     )
@@ -1626,6 +1717,9 @@ def update_text(
 
 def submit(driver, selector, by="css selector"):
     selector, by = page_utils.recalculate_selector(selector, by)
+    if __is_cdp_swap_needed(driver):
+        driver.cdp.send_keys(selector, "\r\n")
+        return
     element = wait_for_element_clickable(
         driver, selector, by=by, timeout=settings.SMALL_TIMEOUT
     )
@@ -1650,6 +1744,9 @@ def assert_element_visible(
     elif page_utils.is_valid_by(selector):
         original_selector = by
     selector, by = page_utils.recalculate_selector(selector, by)
+    if __is_cdp_swap_needed(driver):
+        driver.cdp.assert_element(selector)
+        return True
     wait_for_element_visible(
         driver,
         selector,
@@ -1668,6 +1765,9 @@ def assert_element_present(
     elif page_utils.is_valid_by(selector):
         original_selector = by
     selector, by = page_utils.recalculate_selector(selector, by)
+    if __is_cdp_swap_needed(driver):
+        driver.cdp.assert_element_present(selector)
+        return True
     wait_for_element_present(
         driver,
         selector,
@@ -1702,18 +1802,53 @@ def assert_text(
     by="css selector",
     timeout=settings.SMALL_TIMEOUT,
 ):
-    browser = driver.capabilities["browserName"].lower()
+    selector, by = page_utils.recalculate_selector(selector, by)
+    if __is_cdp_swap_needed(driver):
+        driver.cdp.assert_text(text, selector)
+        return True
     wait_for_text_visible(
-        driver, text.strip(), selector, by=by, timeout=timeout, browser=browser
+        driver, text.strip(), selector, by=by, timeout=timeout
     )
 
 
 def assert_exact_text(
-    driver, text, selector, by="css selector", timeout=settings.SMALL_TIMEOUT
+    driver,
+    text,
+    selector="html",
+    by="css selector",
+    timeout=settings.SMALL_TIMEOUT,
 ):
-    browser = driver.capabilities["browserName"].lower()
+    selector, by = page_utils.recalculate_selector(selector, by)
+    if __is_cdp_swap_needed(driver):
+        driver.cdp.assert_exact_text(text, selector)
+        return True
     wait_for_exact_text_visible(
-        driver, text.strip(), selector, by=by, timeout=timeout, browser=browser
+        driver, text.strip(), selector, by=by, timeout=timeout
+    )
+
+
+def assert_non_empty_text(
+    driver,
+    selector,
+    by="css selector",
+    timeout=settings.SMALL_TIMEOUT,
+):
+    selector, by = page_utils.recalculate_selector(selector, by)
+    wait_for_non_empty_text_visible(
+        driver, selector, by=by, timeout=timeout
+    )
+
+
+def assert_text_not_visible(
+    driver,
+    text,
+    selector="html",
+    by="css selector",
+    timeout=settings.SMALL_TIMEOUT,
+):
+    selector, by = page_utils.recalculate_selector(selector, by)
+    wait_for_text_not_visible(
+        driver, text.strip(), selector, by=by, timeout=timeout
     )
 
 
@@ -1729,7 +1864,32 @@ def wait_for_element(
     elif page_utils.is_valid_by(selector):
         original_selector = by
     selector, by = page_utils.recalculate_selector(selector, by)
+    if __is_cdp_swap_needed(driver):
+        return driver.cdp.select(selector)
     return wait_for_element_visible(
+        driver=driver,
+        selector=selector,
+        by=by,
+        timeout=timeout,
+        original_selector=original_selector,
+    )
+
+
+def wait_for_selector(
+    driver,
+    selector,
+    by="css selector",
+    timeout=settings.LARGE_TIMEOUT,
+):
+    original_selector = None
+    if page_utils.is_valid_by(by):
+        original_selector = selector
+    elif page_utils.is_valid_by(selector):
+        original_selector = by
+    selector, by = page_utils.recalculate_selector(selector, by)
+    if __is_cdp_swap_needed(driver):
+        return driver.cdp.select(selector)
+    return wait_for_element_present(
         driver=driver,
         selector=selector,
         by=by,
@@ -1745,19 +1905,15 @@ def wait_for_text(
     by="css selector",
     timeout=settings.LARGE_TIMEOUT,
 ):
-    browser = None  # Only used for covering a Safari edge case
-    try:
-        if "safari:platformVersion" in driver.capabilities:
-            browser = "safari"
-    except Exception:
-        pass
+    selector, by = page_utils.recalculate_selector(selector, by)
+    if __is_cdp_swap_needed(driver):
+        return driver.cdp.find_element(selector)
     return wait_for_text_visible(
         driver=driver,
         text=text,
         selector=selector,
         by=by,
         timeout=timeout,
-        browser=browser,
     )
 
 
@@ -1768,19 +1924,13 @@ def wait_for_exact_text(
     by="css selector",
     timeout=settings.LARGE_TIMEOUT,
 ):
-    browser = None  # Only used for covering a Safari edge case
-    try:
-        if "safari:platformVersion" in driver.capabilities:
-            browser = "safari"
-    except Exception:
-        pass
+    selector, by = page_utils.recalculate_selector(selector, by)
     return wait_for_exact_text_visible(
         driver=driver,
         text=text,
         selector=selector,
         by=by,
         timeout=timeout,
-        browser=browser,
     )
 
 
@@ -1790,6 +1940,7 @@ def wait_for_non_empty_text(
     by="css selector",
     timeout=settings.LARGE_TIMEOUT,
 ):
+    selector, by = page_utils.recalculate_selector(selector, by)
     return wait_for_non_empty_text_visible(
         driver=driver,
         selector=selector,
@@ -1804,12 +1955,8 @@ def get_text(
     by="css selector",
     timeout=settings.LARGE_TIMEOUT
 ):
-    browser = None  # Only used for covering a Safari edge case
-    try:
-        if "safari:platformVersion" in driver.capabilities:
-            browser = "safari"
-    except Exception:
-        pass
+    if __is_cdp_swap_needed(driver):
+        return driver.cdp.get_text(selector)
     element = wait_for_element(
         driver=driver,
         selector=selector,
@@ -1817,7 +1964,7 @@ def get_text(
         timeout=timeout,
     )
     element_text = element.text
-    if browser == "safari":
+    if shared_utils.is_safari(driver):
         if element.tag_name.lower() in ["input", "textarea"]:
             element_text = element.get_attribute("value")
         else:

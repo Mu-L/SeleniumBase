@@ -1,9 +1,11 @@
 from seleniumbase import BaseCase
-BaseCase.main(__name__, __file__)
+BaseCase.main(__name__, __file__, "--uc")
 
 
 class MyTourClass(BaseCase):
     def test_google_tour(self):
+        if not self.undetectable:
+            self.get_new_driver(undetectable=True)
         self.open("https://google.com/ncr")
         self.wait_for_element('[title="Search"]')
         self.hide_elements("iframe")
@@ -40,6 +42,9 @@ class MyTourClass(BaseCase):
         self.wait_for_element("#searchboxinput")
         self.wait_for_element("#minimap")
         self.wait_for_element("#zoom")
+        self.wait_for_element("#widget-zoom-out")
+        self.wait_for_element('[jsaction*="minimap.main;"]')
+        self.sleep(0.5)
 
         # Create a website tour using the IntroJS library
         # Same as:  self.create_introjs_tour()

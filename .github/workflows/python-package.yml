@@ -19,7 +19,7 @@ jobs:
       fail-fast: false
       max-parallel: 6
       matrix:
-        python-version: ["3.7", "3.8", "3.9", "3.10", "3.11", "3.12"]
+        python-version: ["3.8", "3.9", "3.10", "3.11", "3.12", "3.13"]
 
     steps:
     - uses: actions/checkout@v4
@@ -33,7 +33,7 @@ jobs:
         pip install -r requirements.txt
     - name: Install SeleniumBase
       run: |
-        python setup.py install
+        pip install .
     - name: Lint with flake8
       run: |
         pip install flake8

@@ -21,16 +21,16 @@ import colorama
 import os
 import subprocess
 import sys
+import tkinter as tk
+from seleniumbase.fixtures import shared_utils
+from tkinter.scrolledtext import ScrolledText
 
-if sys.version_info <= (3, 7):
+if sys.version_info <= (3, 8):
     current_version = ".".join(str(ver) for ver in sys.version_info[:3])
     raise Exception(
-        "\n* SBase Commander requires Python 3.7 or newer!"
+        "\n* SBase Commander requires Python 3.8 or newer!"
         "\n** You are currently using Python %s" % current_version
     )
-from seleniumbase.fixtures import shared_utils
-import tkinter as tk  # noqa: E402
-from tkinter.scrolledtext import ScrolledText  # noqa: E402
 
 
 def set_colors(use_colors):
@@ -42,13 +42,6 @@ def set_colors(use_colors):
     c5 = ""
     cr = ""
     if use_colors:
-        if (
-            shared_utils.is_windows()
-            and hasattr(colorama, "just_fix_windows_console")
-        ):
-            colorama.just_fix_windows_console()
-        else:
-            colorama.init(autoreset=True)
         c0 = colorama.Fore.BLUE + colorama.Back.LIGHTCYAN_EX
         c1 = colorama.Fore.BLUE + colorama.Back.LIGHTGREEN_EX
         c2 = colorama.Fore.RED + colorama.Back.LIGHTYELLOW_EX
@@ -163,9 +156,9 @@ def do_pytest_run(
     if save_screenshots:
         full_run_command += " --screenshot"
 
-    dash_s_needed = False
-    if "-s" not in additional_options.split(" "):
-        dash_s_needed = True
+    capture_needed = False
+    if "--capture" not in additional_options:
+        capture_needed = True
 
     additional_options = additional_options.strip()
     if additional_options:
@@ -175,8 +168,8 @@ def do_pytest_run(
     if verbose:
         full_run_command += " -v"
 
-    if dash_s_needed:
-        full_run_command += " -s"
+    if capture_needed:
+        full_run_command += " --capture=tee-sys"
 
     print(full_run_command)
     subprocess.Popen(full_run_command, shell=True)

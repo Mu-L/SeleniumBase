@@ -39,21 +39,21 @@ import sys
 def invalid_run_command(msg=None):
     exp = "  ** mkrec / record / codegen **\n\n"
     exp += "  Usage:\n"
-    exp += "           seleniumbase mkrec [FILE.py]\n"
-    exp += "           OR:    sbase mkrec [FILE.py]\n"
+    exp += "     seleniumbase mkrec [FILE.py]\n"
+    exp += "     OR:    sbase mkrec [FILE.py]\n"
     exp += "  Examples:\n"
-    exp += "           sbase mkrec new_test.py\n"
-    exp += "           sbase mkrec new_test.py --url=wikipedia.org\n"
+    exp += "     sbase mkrec new_test.py\n"
+    exp += "     sbase mkrec new_test.py --url=wikipedia.org\n"
     exp += "  Options:\n"
-    exp += "           --url=URL  (Sets the initial start page URL.)\n"
-    exp += "           --edge  (Use Edge browser instead of Chrome.)\n"
-    exp += "           --gui / --headed  (Use headed mode on Linux.)\n"
-    exp += "           --uc / --undetected  (Use undetectable mode.)\n"
-    exp += "           --overwrite  (Overwrite file when it exists.)\n"
-    exp += "           --behave  (Also output Behave/Gherkin files.)\n"
+    exp += "     --url=URL  (Sets the initial start page URL.)\n"
+    exp += "     --edge  (Use Edge browser instead of Chrome.)\n"
+    exp += "     --gui / --headed  (Use headed mode on Linux.)\n"
+    exp += "     --uc / --undetected  (Use undetectable mode.)\n"
+    exp += "     --overwrite  (Overwrite file when it exists.)\n"
+    exp += "     --behave  (Also output Behave/Gherkin files.)\n"
     exp += "  Output:\n"
-    exp += "           Creates a new SeleniumBase test using the Recorder.\n"
-    exp += "           If the filename already exists, an error is raised.\n"
+    exp += "     Creates a new SeleniumBase test using the Recorder.\n"
+    exp += "     If the filename already exists, an error is raised.\n"
     if not msg:
         raise Exception("INVALID RUN COMMAND!\n\n%s" % exp)
     elif msg == "help":
@@ -71,13 +71,6 @@ def set_colors(use_colors):
     c7 = ""
     cr = ""
     if use_colors:
-        if (
-            "win32" in sys.platform
-            and hasattr(colorama, "just_fix_windows_console")
-        ):
-            colorama.just_fix_windows_console()
-        else:
-            colorama.init(autoreset=True)
         c0 = colorama.Fore.BLUE + colorama.Back.LIGHTCYAN_EX
         c1 = colorama.Fore.RED + colorama.Back.LIGHTYELLOW_EX
         c2 = colorama.Fore.LIGHTRED_EX + colorama.Back.LIGHTYELLOW_EX
@@ -93,6 +86,7 @@ def main():
     invalid_cmd = None
     use_edge = False
     use_uc = False
+    esc_end = False
     start_page = None
     next_is_url = False
     use_colors = True
@@ -145,10 +139,14 @@ def main():
                 help_me = True
             elif option.lower() == "--edge":
                 use_edge = True
+            elif option.lower() == "--ee":
+                esc_end = True
             elif option.lower() in ("--gui", "--headed"):
                 if "linux" in sys.platform:
                     force_gui = True
-            elif option.lower() in ("--uc", "--undetected", "--undetectable"):
+            elif option.lower() in (
+                "--uc", "--cdp", "--undetected", "--undetectable"
+            ):
                 use_uc = True
             elif option.lower() in ("--rec-behave", "--behave", "--gherkin"):
                 rec_behave = True
@@ -178,11 +176,69 @@ def main():
     data.append("")
     data.append("class RecorderTest(BaseCase):")
     data.append("    def test_recording(self):")
+    if use_uc:
+        data.append("        if self.undetectable:")
+        if (
+            start_page
+            and (
+                start_page.startswith("http:")
+                or start_page.startswith("https:")
+                or start_page.startswith("file:")
+            )
+        ):
+            used_sp = start_page
+            if '"' not in start_page:
+                used_sp = '"%s"' % start_page
+            elif "'" not in start_page:
+                used_sp = "'%s'" % start_page
+            data.append(
+                "            self.uc_open_with_disconnect(\n"
+                "                %s\n"
+                "            )" % used_sp
+            )
+        else:
+            data.append("            self.disconnect()")
     data.append("        if self.recorder_ext:")
     data.append("            # When done recording actions,")
     data.append('            # type "c", and press [Enter].')
     data.append("            import pdb; pdb.set_trace()")
     data.append("")
+
+    if esc_end:
+        msg = ">>> Use [SHIFT + ESC] in the browser to end recording!"
+        d2 = []
+        d2.append("from seleniumbase import BaseCase")
+        d2.append("")
+        d2.append("")
+        d2.append("class RecorderTest(BaseCase):")
+        d2.append("    def test_recording(self):")
+        d2.append("        if self.recorder_ext:")
+        d2.append("            print(")
+        d2.append('                "\\n\\n%s\\n"' % msg)
+        d2.append("            )")
+        d2.append('            script = self._get_rec_shift_esc_script()')
+        d2.append('            esc = "return document.sb_esc_end;"')
+        d2.append("            start_time = self.time()")
+        d2.append("            last_handles_num = self._get_num_handles()")
+        d2.append("            for i in range(1200):")
+        d2.append("                try:")
+        d2.append("                    self.execute_script(script)")
+        d2.append("                    handles_num = self._get_num_handles()")
+        d2.append("                    if handles_num < 1:")
+        d2.append("                        return")
+        d2.append("                    elif handles_num != last_handles_num:")
+        d2.append("                        self.switch_to_window(-1)")
+        d2.append("                        last_handles_num = handles_num")
+        d2.append('                    if self.execute_script(esc) == "yes":')
+        d2.append("                        return")
+        d2.append("                    elif self.time() - start_time > 600:")
+        d2.append("                        return")
+        d2.append("                    self.sleep(0.5)")
+        d2.append("                except Exception:")
+        d2.append("                    return")
+        d2.append("")
+        data = d2
+
     file = codecs.open(file_path, "w+", "utf-8")
     file.writelines("\r\n".join(data))
     file.close()
@@ -192,7 +248,18 @@ def main():
     )
     print(success)
     run_cmd = None
-    if not start_page:
+    if (
+        not start_page
+        or (
+            use_uc
+            and (
+                start_page.startswith("http:")
+                or start_page.startswith("https:")
+                or start_page.startswith("file:")
+            )
+            and not esc_end
+        )
+    ):
         run_cmd = "%s -m pytest %s --rec -q -s" % (sys_executable, file_name)
     else:
         run_cmd = "%s -m pytest %s --rec -q -s --url=%s" % (

@@ -6,7 +6,7 @@
 
 * <b>SeleniumBase</b> tests are run with <b>pytest</b>.
 * Chrome is the default browser if not specified.
-* Tests are structured using [23 unique syntax formats](https://github.com/seleniumbase/SeleniumBase/blob/master/help_docs/syntax_formats.md).
+* Tests are structured using [25 unique syntax formats](https://github.com/seleniumbase/SeleniumBase/blob/master/help_docs/syntax_formats.md).
 * Logs from test failures are saved to ``./latest_logs/``.
 * Tests can be run with [multiple command-line options](https://github.com/seleniumbase/SeleniumBase/blob/master/help_docs/customizing_test_runs.md).
 * Examples can be found in: **[SeleniumBase/examples/](https://github.com/seleniumbase/SeleniumBase/tree/master/examples)**.
@@ -19,21 +19,31 @@
 
 --------
 
-Run an [example test](https://github.com/seleniumbase/SeleniumBase/blob/master/examples/test_demo_site.py): (Default option: ``--chrome``)
+Run an [example test](https://github.com/seleniumbase/SeleniumBase/blob/master/examples/my_first_test.py): (Default option: ``--chrome``)
+
+```bash
+pytest my_first_test.py
+```
+
+<img src="https://seleniumbase.github.io/cdn/gif/fast_swag.gif" title="SeleniumBase Demo Page" /><br />
+
+--------
+
+Here's one way of changing the browser to Firefox:
+
+```bash
+pytest my_first_test.py --firefox
+```
+
+--------
+
+Another [example test](https://github.com/seleniumbase/SeleniumBase/blob/master/examples/test_demo_site.py) for a web page that has lots of different HTML items:
 
 ```bash
 pytest test_demo_site.py
 ```
 
 <img src="https://seleniumbase.github.io/cdn/gif/demo_page_4.gif" title="SeleniumBase Demo Page" /><br />
-
---------
-
-Run an example test in Firefox:
-
-```bash
-pytest my_first_test.py --browser=firefox
-```
 
 --------
 
@@ -238,6 +248,12 @@ python gui_test_runner.py
 <img src="https://seleniumbase.github.io/cdn/img/gui_test_runner.png" title="GUI Test Runner" width="320" />
 
 (The newer **[SeleniumBase Commander](https://seleniumbase.io/help_docs/commander/)** improves on that.)
+
+--------
+
+<h3><a href="https://discord.gg/EdhQTn3EyE"><img src="https://seleniumbase.github.io/other/discord_icon.png" title="Join the SeleniumBase chat on Discord" alt="Join the SeleniumBase chat on Discord" width="44" /></a> <a href="https://discord.gg/EdhQTn3EyE">Join the SeleniumBase chat on Discord!</a></h3>
+
+Ask questions. Find answers. Learn how to automate!
 
 --------
 

@@ -2,9 +2,9 @@
 
 <a id="syntax_formats"></a>
 
-<h2><img src="https://seleniumbase.github.io/img/logo6.png" title="SeleniumBase" width="40"> The 23 Syntax Formats / Design Patterns</h2>
+<h2><img src="https://seleniumbase.github.io/img/logo6.png" title="SeleniumBase" width="40"> The 25 Syntax Formats / Design Patterns</h2>
 
-<h3>🔡 SeleniumBase supports multiple ways of structuring tests:</h3>
+<h3>🔠 SeleniumBase supports multiple ways of structuring tests:</h3>
 
 <blockquote>
 <p dir="auto"></p>
@@ -32,6 +32,8 @@
 <li><a href="#sb_sf_21"><strong>21. SeleniumBase SB (Python context manager)</strong></a></li>
 <li><a href="#sb_sf_22"><strong>22. The driver manager (via context manager)</strong></a></li>
 <li><a href="#sb_sf_23"><strong>23. The driver manager (via direct import)</strong></a></li>
+<li><a href="#sb_sf_24"><strong>24. CDP driver (async/await API. No Selenium)</strong></a></li>
+<li><a href="#sb_sf_25"><strong>25. CDP driver (SB-CDP sync API. No Selenium)</strong></a></li>
 </ul>
 </blockquote>
 
@@ -450,9 +452,10 @@ class 我的测试类(硒测试用例):
         self.开启("https://zh.wikipedia.org/wiki/")
         self.断言标题("维基百科，自由的百科全书")
         self.断言元素('a[title="Wikipedia:关于"]')
+        self.如果可见请单击('button[aria-label="关闭"]')
+        self.如果可见请单击('button[aria-label="關閉"]')
         self.断言元素('span:contains("创建账号")')
         self.断言元素('span:contains("登录")')
-        self.断言文本("新闻动态", "span#新闻动态")
         self.输入文本('input[name="search"]', "舞龍")
         self.单击('button:contains("搜索")')
         self.断言文本("舞龍", "#firstHeading")
@@ -484,14 +487,14 @@ Testgeval.main(__name__, __file__)
 class MijnTestklasse(Testgeval):
     def test_voorbeeld_1(self):
         self.openen("https://nl.wikipedia.org/wiki/Hoofdpagina")
-        self.controleren_element('a[title*="hoofdpagina gaan"]')
+        self.controleren_element('a[title*="Welkom voor nieuwkomers"]')
         self.controleren_tekst("Welkom op Wikipedia", "td.hp-welkom")
-        self.typ("#searchInput", "Stroopwafel")
-        self.klik("#searchButton")
+        self.typ("#searchform input", "Stroopwafel")
+        self.klik("#searchform button")
         self.controleren_tekst("Stroopwafel", "#firstHeading")
         self.controleren_element('img[src*="Stroopwafels"]')
-        self.typ("#searchInput", "Rijksmuseum Amsterdam")
-        self.klik("#searchButton")
+        self.typ("#searchform input", "Rijksmuseum Amsterdam")
+        self.klik("#searchform button")
         self.controleren_tekst("Rijksmuseum", "#firstHeading")
         self.controleren_element('img[src*="Rijksmuseum"]')
         self.terug()
@@ -517,6 +520,7 @@ class MaClasseDeTest(CasDeBase):
         self.ouvrir("https://fr.wikipedia.org/wiki/")
         self.vérifier_texte("Wikipédia")
         self.vérifier_élément('[alt="Wikipédia"]')
+        self.cliquer_si_affiché('button[aria-label="Fermer"]')
         self.js_taper("#searchform input", "Crème brûlée")
         self.cliquer("#searchform button")
         self.vérifier_texte("Crème brûlée", "#firstHeading")
@@ -548,12 +552,12 @@ class MiaClasseDiTest(CasoDiProva):
         self.apri("https://it.wikipedia.org/wiki/")
         self.verificare_testo("Wikipedia")
         self.verificare_elemento('a[title="Lingua italiana"]')
-        self.digitare("#searchInput", "Pizza")
-        self.fare_clic("#searchButton")
+        self.digitare('input[name="search"]', "Pizza")
+        self.fare_clic("#searchform button")
         self.verificare_testo("Pizza", "#firstHeading")
         self.verificare_elemento('figure img[src*="pizza"]')
-        self.digitare("#searchInput", "Colosseo")
-        self.fare_clic("#searchButton")
+        self.digitare('input[name="search"]', "Colosseo")
+        self.fare_clic("#searchform button")
         self.verificare_testo("Colosseo", "#firstHeading")
         self.verificare_elemento('figure img[src*="Colosseo"]')
         self.indietro()
@@ -585,7 +589,7 @@ class 私のテストクラス(セレニウムテストケース):
         self.JS入力('input[name="search"]', "寿司")
         self.クリックして("#searchform button")
         self.テキストを確認する("寿司", "#firstHeading")
-        self.要素を確認する('img[alt="握り寿司"]')
+        self.要素を確認する('img[src*="Various_sushi"]')
         self.JS入力("#searchInput", "レゴランド・ジャパン")
         self.クリックして("#searchform button")
         self.要素を確認する('img[src*="LEGOLAND_JAPAN"]')
@@ -674,7 +678,7 @@ class МойТестовыйКласс(ТестНаСелен):
     def test_пример_1(self):
         self.открыть("https://ru.wikipedia.org/wiki/")
         self.подтвердить_элемент('[title="Русский язык"]')
-        self.подтвердить_текст("Википедия", "h2.main-wikimedia-header")
+        self.подтвердить_текст("Википедия", "div.main-wikimedia-header")
         self.введите("#searchInput", "МГУ")
         self.нажмите("#searchButton")
         self.подтвердить_текст("университет", "#firstHeading")
@@ -832,27 +836,26 @@ This format provides a pure Python way of using SeleniumBase without a test runn
 ```python
 from seleniumbase import SB
 
-with SB() as sb:  # By default, browser="chrome" if not set.
-    sb.open("https://seleniumbase.github.io/realworld/login")
+with SB() as sb:
+    sb.open("seleniumbase.io/simple/login")
     sb.type("#username", "demo_user")
     sb.type("#password", "secret_pass")
-    sb.enter_mfa_code("#totpcode", "GAXG2MTEOR3DMMDG")  # 6-digit
-    sb.assert_text("Welcome!", "h1")
-    sb.highlight("img#image1")  # A fancier assert_element() call
-    sb.click('a:contains("This Page")')  # Use :contains() on any tag
-    sb.click_link("Sign out")  # Link must be "a" tag. Not "button".
-    sb.assert_element('a:contains("Sign in")')
-    sb.assert_exact_text("You have been signed out!", "#top_message")
+    sb.click('a:contains("Sign in")')
+    sb.assert_exact_text("Welcome!", "h1")
+    sb.assert_element("img#image1")
+    sb.highlight("#image1")
+    sb.click_link("Sign out")
+    sb.assert_text("signed out", "#top_message")
 ```
 
-(See <a href="https://github.com/seleniumbase/SeleniumBase/blob/master/examples/raw_sb.py">examples/raw_sb.py</a> for the test.)
+(See <a href="https://github.com/seleniumbase/SeleniumBase/blob/master/examples/raw_login_sb.py">examples/raw_login_sb.py</a> for the test.)
 
 Here's another example, which uses <code translate="no">test</code> mode:
 
 ```python
 from seleniumbase import SB
 
-with SB(test=True) as sb:
+with SB(test=True, uc=True) as sb:
     sb.open("https://google.com/ncr")
     sb.type('[name="q"]', "SeleniumBase on GitHub\n")
     sb.click('a[href*="github.com/seleniumbase"]')
@@ -875,17 +878,32 @@ with SB(test=True, rtf=True, demo=True) as sb:
 
 (See <a href="https://github.com/seleniumbase/SeleniumBase/blob/master/examples/raw_test_scripts.py">examples/raw_test_scripts.py</a> for the test.)
 
+Here's another example, which uses [CDP Mode](https://github.com/seleniumbase/SeleniumBase/blob/master/examples/cdp_mode/ReadMe.md) from the SeleniumBase SB format:
+
+```python
+from seleniumbase import SB
+
+with SB(uc=True, test=True) as sb:
+    url = "www.planetminecraft.com/account/sign_in/"
+    sb.activate_cdp_mode(url)
+    sb.sleep(2)
+    sb.cdp.gui_click_element("#turnstile-widget div")
+    sb.sleep(2)
+```
+
+(See <a href="https://github.com/seleniumbase/SeleniumBase/blob/master/examples/cdp_mode/raw_planetmc.py">examples/cdp_mode/raw_planetmc.py</a> for the test.)
+
 <a id="sb_sf_22"></a>
 <h2><img src="https://seleniumbase.github.io/img/logo3b.png" title="SeleniumBase" width="32" /> 22. The driver manager (via context manager)</h2>
 
 This pure Python format gives you a raw <code translate="no">webdriver</code> instance in a <code translate="no">with</code> block. The SeleniumBase Driver Manager will automatically make sure that your driver is compatible with your browser version. It gives you full access to customize driver options via method args or via the command-line. The driver will automatically call <code translate="no">quit()</code> after the code leaves the <code translate="no">with</code> block. Here are some examples:
 
 ```python
-"""Can run with "python". (pytest not needed)."""
+"""DriverContext() example. (Runs with "python")."""
 from seleniumbase import DriverContext
 
 with DriverContext() as driver:
-    driver.open("seleniumbase.github.io/")
+    driver.open("seleniumbase.io/")
     driver.highlight('img[alt="SeleniumBase"]', loops=6)
 
 with DriverContext(browser="chrome", incognito=True) as driver:
@@ -896,7 +914,7 @@ with DriverContext(browser="chrome", incognito=True) as driver:
     driver.highlight("#output", loops=6)
 
 with DriverContext() as driver:
-    driver.open("seleniumbase.github.io/demo_page")
+    driver.open("seleniumbase.io/demo_page")
     driver.highlight("h2")
     driver.type("#myTextInput", "Automation")
     driver.click("#checkBox1")
@@ -911,8 +929,18 @@ with DriverContext() as driver:
 Another way of running Selenium tests with pure ``python`` (as opposed to using ``pytest`` or ``pynose``) is by using this format, which bypasses [BaseCase](https://github.com/seleniumbase/SeleniumBase/blob/master/seleniumbase/fixtures/base_case.py) methods while still giving you a flexible driver with a manager. SeleniumBase includes helper files such as [page_actions.py](https://github.com/seleniumbase/SeleniumBase/blob/master/seleniumbase/fixtures/page_actions.py), which may help you get around some of the limitations of bypassing ``BaseCase``. Here's an example:
 
 ```python
-"""Driver() test. Runs with "python". (pytest not needed)."""
+"""Driver() example. (Runs with "python")."""
 from seleniumbase import Driver
+
+driver = Driver()
+try:
+    driver.open("seleniumbase.io/demo_page")
+    driver.highlight("h2")
+    driver.type("#myTextInput", "Automation")
+    driver.click("#checkBox1")
+    driver.highlight("img", loops=6)
+finally:
+    driver.quit()
 
 driver = Driver(browser="chrome", headless=False)
 try:
@@ -923,19 +951,9 @@ try:
     driver.highlight("#output", loops=6)
 finally:
     driver.quit()
-
-driver = Driver()
-try:
-    driver.open("seleniumbase.github.io/demo_page")
-    driver.highlight("h2")
-    driver.type("#myTextInput", "Automation")
-    driver.click("#checkBox1")
-    driver.highlight("img", loops=6)
-finally:
-    driver.quit()
 ```
 
-(From <a href="https://github.com/seleniumbase/SeleniumBase/blob/master/examples/raw_browser_launcher.py">examples/raw_browser_launcher.py</a>)
+(From <a href="https://github.com/seleniumbase/SeleniumBase/blob/master/examples/raw_driver_manager.py">examples/raw_driver_manager.py</a>)
 
 Here's how the [selenium-wire](https://github.com/wkeeling/selenium-wire) integration may look when using the ``Driver()`` format:
 
@@ -947,6 +965,22 @@ try:
     driver.get("https://wikipedia.org")
     for request in driver.requests:
         print(request.url)
+finally:
+    driver.quit()
+```
+
+Here's another `selenium-wire` example with the `Driver()` format:
+
+```python
+from seleniumbase import Driver
+
+def intercept_response(request, response):
+    print(request.headers)
+
+driver = Driver(wire=True)
+try:
+    driver.response_interceptor = intercept_response
+    driver.get("https://wikipedia.org")
 finally:
     driver.quit()
 ```
@@ -976,6 +1010,87 @@ finally:
 The ``Driver()`` manager format can be used as a drop-in replacement for virtually every Python/selenium framework, as it uses the raw ``driver`` instance for handling commands. The ``Driver()`` method simplifies the work of managing drivers with optimal settings, and it can be configured with multiple args. The ``Driver()`` also accepts command-line options (such as ``python --headless``) so that you don't need to modify your tests directly to use different settings. These command-line options only take effect if the associated method args remain unset (or set to ``None``) for the specified options.
 
 When using the ``Driver()`` format, you may need to activate a Virtual Display on your own if you want to run headed tests in a headless Linux environment. (See https://github.com/mdmintz/sbVirtualDisplay for details.) One such example of this is using an authenticated proxy, which is configured via a Chrome extension that is generated at runtime. (Note that regular headless mode in Chrome doesn't support extensions.)
+
+<a id="sb_sf_24"></a>
+<h2><img src="https://seleniumbase.github.io/img/logo3b.png" title="SeleniumBase" width="32" /> 24. CDP driver (async/await API. No Selenium)</h2>
+
+This format provides a pure CDP way of using SeleniumBase (without Selenium or a test runner). The async/await API is used. Here's an example:
+
+```python
+import asyncio
+import time
+from seleniumbase.undetected import cdp_driver
+
+
+async def main():
+    driver = await cdp_driver.cdp_util.start_async()
+    page = await driver.get("about:blank")
+    await page.set_locale("en")
+    await page.get("https://www.priceline.com/")
+    time.sleep(3)
+    print(await page.evaluate("document.title"))
+    element = await page.select('[data-testid*="endLocation"]')
+    await element.click_async()
+    time.sleep(1)
+    await element.send_keys_async("Boston")
+    time.sleep(2)
+
+if __name__ == "__main__":
+    loop = asyncio.new_event_loop()
+    loop.run_until_complete(main())
+```
+
+(See <a href="https://github.com/seleniumbase/SeleniumBase/blob/master/examples/cdp_mode/raw_async.py">examples/cdp_mode/raw_async.py</a> for the test.)
+
+<a id="sb_sf_25"></a>
+<h2><img src="https://seleniumbase.github.io/img/logo3b.png" title="SeleniumBase" width="32" /> 25. CDP driver (SB-CDP sync API. No Selenium)</h2>
+
+This format provides a pure CDP way of using SeleniumBase (without Selenium or a test runner). The expanded SB-CDP sync API is used. Here's an example:
+
+```python
+import asyncio
+from seleniumbase.core import sb_cdp
+from seleniumbase.undetected import cdp_driver
+
+
+def main():
+    url0 = "about:blank"  # Set Locale code from here first
+    url1 = "https://www.priceline.com/"  # (The "real" URL)
+    loop = asyncio.new_event_loop()
+    driver = cdp_driver.cdp_util.start_sync()
+    page = loop.run_until_complete(driver.get(url0))
+    sb = sb_cdp.CDPMethods(loop, page, driver)
+    sb.set_locale("en")  # This test expects English locale
+    sb.open(url1)
+    sb.sleep(2.5)
+    sb.internalize_links()  # Don't open links in a new tab
+    sb.click("#link_header_nav_experiences")
+    sb.sleep(3.5)
+    sb.remove_elements("msm-cookie-banner")
+    sb.sleep(1.5)
+    location = "Amsterdam"
+    where_to = 'div[data-automation*="experiences"] input'
+    button = 'button[data-automation*="experiences-search"]'
+    sb.gui_click_element(where_to)
+    sb.press_keys(where_to, location)
+    sb.sleep(1)
+    sb.gui_click_element(button)
+    sb.sleep(3)
+    print(sb.get_title())
+    print("************")
+    for i in range(8):
+        sb.scroll_down(50)
+        sb.sleep(0.2)
+    cards = sb.select_all('h2[data-automation*="product-list-card"]')
+    for card in cards:
+        print("* %s" % card.text)
+
+
+if __name__ == "__main__":
+    main()
+```
+
+(See <a href="https://github.com/seleniumbase/SeleniumBase/blob/master/examples/cdp_mode/raw_cdp.py">examples/cdp_mode/raw_cdp.py</a> for the test.)
 
 --------
 

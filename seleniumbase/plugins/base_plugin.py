@@ -2,6 +2,7 @@
 import ast
 import sys
 import time
+from contextlib import suppress
 from nose.plugins import Plugin
 from seleniumbase import config as sb_config
 from seleniumbase.config import settings
@@ -207,7 +208,6 @@ class Base(Plugin):
         self.duration = float(0)
         self.page_results_list = []
         self.test_count = 0
-        self.import_error = False
         log_path = constants.Logs.LATEST + "/"
         archive_logs = options.archive_logs
         log_helper.log_folder_setup(log_path, archive_logs)
@@ -219,14 +219,14 @@ class Base(Plugin):
     def beforeTest(self, test):
         sb_config._context_of_runner = False  # Context Manager Compatibility
         variables = self.options.variables
-        if variables and type(variables) is str and len(variables) > 0:
+        if variables and isinstance(variables, str) and len(variables) > 0:
             bad_input = False
             if not variables.startswith("{") or not variables.endswith("}"):
                 bad_input = True
             else:
                 try:
                     variables = ast.literal_eval(variables)
-                    if not type(variables) is dict:
+                    if not isinstance(variables, dict):
                         bad_input = True
                 except Exception:
                     bad_input = True
@@ -237,6 +237,7 @@ class Base(Plugin):
                 )
         else:
             variables = {}
+        test.test.test_id = test.id()
         test.test.is_nosetest = True
         test.test.environment = self.options.environment
         test.test.env = self.options.environment  # Add a shortened version
@@ -262,17 +263,16 @@ class Base(Plugin):
         )
         log_helper.clear_empty_logs()
         if self.report_on:
-            if not self.import_error:
-                report_helper.add_bad_page_log_file(self.page_results_list)
-                report_log_path = report_helper.archive_new_report_logs()
-                report_helper.build_report(
-                    report_log_path,
-                    self.page_results_list,
-                    self.successes,
-                    self.failures,
-                    self.options.browser,
-                    self.show_report,
-                )
+            report_helper.add_bad_page_log_file(self.page_results_list)
+            report_log_path = report_helper.archive_new_report_logs()
+            report_helper.build_report(
+                report_log_path,
+                self.page_results_list,
+                self.successes,
+                self.failures,
+                self.options.browser,
+                self.show_report,
+            )
 
     def addSuccess(self, test, capt):
         if self.report_on:
@@ -292,9 +292,6 @@ class Base(Plugin):
                 "%.2fs" % (float(time.time()) - float(self.start_time))
             )
             if test.id() == "nose.failure.Failure.runTest":
-                print(">>> ERROR: Could not locate tests to run!")
-                print(">>> The Test Report WILL NOT be generated!")
-                self.import_error = True
                 return
             self.failures.append(test.id())
             self.page_results_list.append(
@@ -305,16 +302,15 @@ class Base(Plugin):
         if python3_11_or_newer and py311_patch2:
             # Handle a bug on Python 3.11 where exceptions aren't seen
             sb_config._browser_version = None
-            try:
+            with suppress(Exception):
                 test._BaseCase__set_last_page_screenshot()
                 test._BaseCase__set_last_page_url()
                 test._BaseCase__set_last_page_source()
                 sb_config._browser_version = test._get_browser_version()
                 test._log_fail_data()
-            except Exception:
-                pass
             sb_config._excinfo_tb = err
             log_path = None
+            source = None
             if hasattr(sb_config, "_test_logpath"):
                 log_path = sb_config._test_logpath
             if hasattr(sb_config, "_last_page_source"):

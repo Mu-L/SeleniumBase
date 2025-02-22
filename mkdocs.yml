@@ -10,7 +10,7 @@ edit_uri: ""
 site_dir: "site"
 docs_dir: "mkdocs_build"
 # Copyright
-copyright: Copyright &copy; 2014 - 2023 Michael Mintz
+copyright: Copyright &copy; 2014 - 2024 Michael Mintz
 # Extensions
 markdown_extensions:
   - admonition
@@ -73,8 +73,10 @@ plugins:
         - CONTRIBUTING.md
         - SECURITY.md
         - examples/case_summary.md
+        - examples/migration/raw_selenium/ReadMe.md
         - help_docs/chinese.md
         - integrations/katalon/ReadMe.md
+        - help_docs/ReadMe.md
         - help_docs/verify_webdriver.md
         - help_docs/webdriver_installation.md
         - seleniumbase/masterqa/ReadMe.md
@@ -113,13 +115,15 @@ nav:
     - 📶 Chart Maker: examples/chart_maker/ReadMe.md
     - 🎞️ Presentation Maker: examples/presenter/ReadMe.md
   - Integrations:
-    - 📱 Mobile Testing: help_docs/mobile_testing.md
+    - 👤 UC Mode: help_docs/uc_mode.md
+    - 🐙 CDP Mode: examples/cdp_mode/ReadMe.md
     - 🤖 GitHub CI: integrations/github/workflows/ReadMe.md
+    - 🛂 MasterQA: seleniumbase/masterqa/ReadMe.md
     - 🗂️ Case Plans: help_docs/case_plans.md
+    - 📱 Mobile Mode: help_docs/mobile_testing.md
+    - 🌐 Selenium Grid: seleniumbase/utilities/selenium_grid/ReadMe.md
     - 🖼️ Visual Testing: examples/visual_testing/ReadMe.md
     - 🕵️ The HTML Inspector: help_docs/html_inspector.md
-    - 🌐 Selenium Grid: seleniumbase/utilities/selenium_grid/ReadMe.md
-    - 🛂 MasterQA: seleniumbase/masterqa/ReadMe.md
     - 🤖 Azure Pipelines: integrations/azure/azure_pipelines/ReadMe.md
     - 🤖 Jenkins on Azure: integrations/azure/jenkins/ReadMe.md
     - 🤖 Jenkins on Google Cloud: integrations/google_cloud/ReadMe.md
@@ -171,6 +175,7 @@ nav:
     - 📃 Desired Capabilities: help_docs/desired_capabilities.md
     - 📜 Useful grep commands: help_docs/useful_grep_commands.md
     - ⚙️ Downloading drivers: help_docs/webdriver_installation.md
+    - ✅ Selenium Migration: examples/migration/raw_selenium/ReadMe.md
     - ✔️ Verifying drivers: help_docs/verify_webdriver.md
   - Behave-BDD Integration:
     - 🐝 Behave-BDD ReadMe: examples/behave_bdd/ReadMe.md

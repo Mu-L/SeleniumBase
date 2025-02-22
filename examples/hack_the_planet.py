@@ -5,7 +5,7 @@ BaseCase.main(__name__, __file__)
 
 class HackTests(BaseCase):
     def test_all_your_base_are_belong_to_us(self):
-        self.set_window_size(1220, 740)
+        self.set_window_size(1250, 740)
         ayb = "ALL YOUR BASE"
         abtu = "ARE BELONG TO US"
         aybabtu = "%s %s" % (ayb, abtu)
@@ -22,8 +22,7 @@ class HackTests(BaseCase):
         self.set_text_content("#n-currentevents a", "BASE")
         self.set_text_content("#n-randompage a", "ARE")
         self.set_text_content("#n-aboutsite a", "BELONG")
-        self.set_text_content("#n-contactpage a", "TO")
-        self.set_text_content("#n-sitesupport a", "US")
+        self.set_text_content("#n-contactpage a", "TO US")
         self.highlight("h1#firstHeading", loops=5, scroll=False)
         zoom_in = "#ca-history a{zoom: 1.8;-moz-transform: scale(1.8);}"
         self.add_css_style(zoom_in)
@@ -38,6 +37,7 @@ class HackTests(BaseCase):
             self.set_text_content('#shelf-1 a[href*="mac"]', "ALL")
             self.set_text_content('#shelf-1 a[href*="iphone"]', "YOUR")
             self.set_text_content('#shelf-1 a[href*="ipad"]', "BASE")
+            self.remove_element('#shelf-1 [role="listitem"]:nth-child(5)')
             self.set_text_content('#shelf-1 a[href*="watch"]', "ARE")
             self.set_text_content('#shelf-1 a[href*="airpods"]', "BELONG")
             self.set_text_content('#shelf-1 a[href*="airtag"]', "TO")
@@ -85,14 +85,8 @@ class HackTests(BaseCase):
         self.highlight('form[role="search"]', loops=8)
 
         self.open("https://github.com/features/actions")
-        self.set_text_content('a[href="/pricing"]', aybabtu)
-        self.set_text_content("h1 span:nth-child(1)", ayb)
-        self.set_text_content("h1 span:nth-of-type(2)", "ARE")
-        self.set_text_content("h1 span:nth-of-type(3)", "BELONG")
-        self.set_text_content("h1 span:nth-of-type(4)", "TO")
-        self.set_text_content("h1 span:nth-of-type(5)", "US")
-        self.highlight('a[href="/pricing"]', loops=6, scroll=False)
-        self.highlight("h1.h2-mktg", loops=7, scroll=False)
+        self.set_text_content("#hero-section-brand-heading", aybabtu)
+        self.highlight("#hero-section-brand-heading", loops=14, scroll=False)
 
         self.open("https://dev.to/top/infinity")
         self.click_if_visible('button[aria-label="Close campaign banner"]')
@@ -108,6 +102,7 @@ class HackTests(BaseCase):
         self.set_text_content('nav a[data-text="Month"]', "BELONG")
         self.set_text_content('nav a[data-text="Year"]', "TO")
         self.set_text_content('nav a[data-text="Infinity"]', "US")
+        self.click_if_visible('button[id*="sponsorship-close-trigger"]')
         self.set_text_content('aside a[class*="tful"]', aybabtu)
         self.set_text_content('aside a[aria-label="Create new account"]', ayb)
         self.set_text_content('aside a[aria-label="Log in"]', abtu)
@@ -119,8 +114,8 @@ class HackTests(BaseCase):
         self.set_text_content(".profile-preview-card button", "SeleniumBase")
         if self.is_element_visible('h2 a[href*="simonh"]'):
             self.set_text_content('h2 a[href*="simonh"]', aybabtu)
-        self.type('input[name="q"]', aybabtu)
-        self.highlight('input[name="q"]', loops=4, scroll=False)
+        if self.is_element_visible('main h2 a[id*="article"]'):
+            self.set_text_content('main h2 a[id*="article"]', aybabtu)
         self.highlight('[aria-label="Primary sidebar"] div div', scroll=False)
         self.highlight('nav a[data-text="Relevant"]', loops=1, scroll=False)
         self.highlight('nav a[data-text="Latest"]', loops=1, scroll=False)
@@ -131,12 +126,16 @@ class HackTests(BaseCase):
         self.highlight('nav a[data-text="Infinity"]', loops=3, scroll=False)
         if self.is_element_visible('h2 a[href*="simonh"]'):
             self.highlight('h2 a[href*="simonh"]', loops=7, scroll=False)
+        if self.is_element_visible('main h2 a[id*="article"]'):
+            self.highlight('main h2 a[id*="article"]', loops=7, scroll=False)
+        self.highlight("section.crayons-card", loops=7, scroll=False)
 
         self.open("https://azure.microsoft.com/en-us/services/playfab/")
-        self.remove_elements('div[role="dialog"]')
         self.set_text_content("h1", aybabtu)
         self.set_text_content('a[aria-label*="Try Azure"]', ayb)
         self.set_text_content('a[aria-label*="Sign in to"]', abtu)
+        self.remove_elements('div[role="dialog"]')
+        self.remove_elements('[aria-label*="Microsoft Survey"]')
         self.highlight("h1", loops=6, scroll=False)
         self.highlight('a[aria-label*="Try Azure"]', loops=4, scroll=False)
         self.highlight('a[aria-label*="Sign in to"]', loops=6, scroll=False)
@@ -289,14 +288,14 @@ class HackTests(BaseCase):
         self.highlight("h1", loops=10, scroll=False)
 
         self.open("https://wordpress.com/")
-        zoom_out = "h1.is-page-header{zoom: 0.8;-moz-transform: scale(0.8);}"
+        zoom_out = "h1{zoom: 0.8;-moz-transform: scale(0.8);}"
         self.add_css_style(zoom_out)
         zoom_in = "a.wp-element-button{zoom: 1.4;-moz-transform: scale(1.4);}"
         self.add_css_style(zoom_in)
-        self.set_text_content("h1.is-page-header", aybabtu)
+        self.set_text_content("h1", aybabtu)
         self.set_text_content("a.wp-element-button", "Use SeleniumBase!")
-        self.highlight("h1.is-page-header", loops=6, scroll=False)
-        self.highlight("a.wp-element-button", loops=4, scroll=False)
+        self.highlight("h1", loops=8, scroll=False)
+        self.highlight("a.wp-element-button", loops=8, scroll=False)
 
         self.open("https://seleniumbase.com/")
         self.set_text_content("h1", aybabtu)
@@ -309,15 +308,6 @@ class HackTests(BaseCase):
         self.highlight('a[href="/sponsors/"]', loops=6, scroll=False)
         self.highlight("h1", loops=6, scroll=False)
         self.highlight("input#search", loops=8, scroll=False)
-
-        self.open("https://www.atlassian.com/software/jira")
-        self.set_text_content('a[href*="jira/pricing"]', ayb)
-        self.set_text_content('a[href*="jira/enterprise"]', abtu)
-        self.set_text_content('a[href="/software/jira/features"]', "")
-        self.set_text_content("h1", aybabtu)
-        self.highlight('a[href*="jira/pricing"]', loops=5, scroll=False)
-        self.highlight('a[href*="jira/enterprise"]', loops=6, scroll=False)
-        self.highlight("h1", loops=8, scroll=False)
 
         self.open("https://status.iboss.com/ibcloud/app/cloudStatus.html")
         self.wait_for_element_clickable('div[translate*="cloudStatus"]')

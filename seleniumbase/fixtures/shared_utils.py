@@ -1,8 +1,11 @@
 """Shared utility methods"""
+import colorama
 import os
+import pathlib
 import platform
 import sys
 import time
+from contextlib import suppress
 from seleniumbase import config as sb_config
 from seleniumbase.fixtures import constants
 
@@ -49,6 +52,10 @@ def is_windows():
     return "win32" in sys.platform
 
 
+def is_safari(driver):
+    return driver.capabilities["browserName"].lower() == "safari"
+
+
 def get_terminal_width():
     width = 80  # default
     try:
@@ -61,6 +68,89 @@ def get_terminal_width():
         except Exception:
             pass
     return width
+
+
+def fix_colorama_if_windows():
+    if is_windows():
+        colorama.just_fix_windows_console()
+
+
+def fix_url_as_needed(url):
+    if not url:
+        url = "data:,"
+    elif url.startswith("//"):
+        url = "https:" + url
+    elif ":" not in url:
+        url = "https://" + url
+    return url
+
+
+def reconnect_if_disconnected(driver):
+    if (
+        hasattr(driver, "_is_using_uc")
+        and driver._is_using_uc
+        and hasattr(driver, "is_connected")
+        and not driver.is_connected()
+    ):
+        with suppress(Exception):
+            driver.connect()
+
+
+def is_cdp_swap_needed(driver):
+    """
+    When someone is using CDP Mode with a disconnected webdriver,
+    but they forget to reconnect before calling a webdriver method,
+    this method is used to substitute the webdriver method for a
+    CDP Mode method instead, which keeps CDP Stealth Mode enabled.
+    For other webdriver methods, SeleniumBase will reconnect first.
+    """
+    return (
+        hasattr(driver, "is_cdp_mode_active")
+        and driver.is_cdp_mode_active()
+        and hasattr(driver, "is_connected")
+        and not driver.is_connected()
+    )
+
+
+def is_chrome_130_or_newer(self, binary_location=None):
+    from seleniumbase.core import detect_b_ver
+
+    """Due to changes in Chrome-130, UC Mode freezes at start-up
+    unless the user-data-dir already exists and is populated."""
+    with suppress(Exception):
+        if not binary_location:
+            ver = detect_b_ver.get_browser_version_from_os("google-chrome")
+        else:
+            ver = detect_b_ver.get_browser_version_from_binary(
+                binary_location
+            )
+        if ver and len(ver) > 3 and int(ver.split(".")[0]) >= 130:
+            return True
+    return False
+
+
+def make_dir_files_writable(dir_path):
+    # Make all files in the given directory writable.
+    for file_path in pathlib.Path(dir_path).glob("*"):
+        if file_path.is_file():
+            mode = os.stat(file_path).st_mode
+            mode |= (mode & 0o444) >> 1  # copy R bits to W
+            with suppress(Exception):
+                os.chmod(file_path, mode)
+
+
+def make_writable(file_path):
+    # Set permissions to: "If you can read it, you can write it."
+    mode = os.stat(file_path).st_mode
+    mode |= (mode & 0o444) >> 1  # copy R bits to W
+    os.chmod(file_path, mode)
+
+
+def make_executable(file_path):
+    # Set permissions to: "If you can read it, you can execute it."
+    mode = os.stat(file_path).st_mode
+    mode |= (mode & 0o444) >> 2  # copy R bits to X
+    os.chmod(file_path, mode)
 
 
 def format_exc(exception, message):
@@ -77,50 +167,50 @@ def format_exc(exception, message):
     from seleniumbase.common.exceptions import TextNotVisibleException
     from seleniumbase.common import exceptions
 
-    if exception == Exception:
+    if exception is Exception:
         exc = Exception
         return exc, message
-    elif exception == ElementNotVisibleException:
+    elif exception is ElementNotVisibleException:
         exc = exceptions.ElementNotVisibleException
     elif exception == "ElementNotVisibleException":
         exc = exceptions.ElementNotVisibleException
-    elif exception == LinkTextNotFoundException:
+    elif exception is LinkTextNotFoundException:
         exc = exceptions.LinkTextNotFoundException
     elif exception == "LinkTextNotFoundException":
         exc = exceptions.LinkTextNotFoundException
-    elif exception == NoSuchElementException:
+    elif exception is NoSuchElementException:
         exc = exceptions.NoSuchElementException
     elif exception == "NoSuchElementException":
         exc = exceptions.NoSuchElementException
-    elif exception == TextNotVisibleException:
+    elif exception is TextNotVisibleException:
         exc = exceptions.TextNotVisibleException
     elif exception == "TextNotVisibleException":
         exc = exceptions.TextNotVisibleException
-    elif exception == NoAlertPresentException:
+    elif exception is NoAlertPresentException:
         exc = exceptions.NoAlertPresentException
     elif exception == "NoAlertPresentException":
         exc = exceptions.NoAlertPresentException
-    elif exception == NoSuchAttributeException:
+    elif exception is NoSuchAttributeException:
         exc = exceptions.NoSuchAttributeException
     elif exception == "NoSuchAttributeException":
         exc = exceptions.NoSuchAttributeException
-    elif exception == NoSuchFrameException:
+    elif exception is NoSuchFrameException:
         exc = exceptions.NoSuchFrameException
     elif exception == "NoSuchFrameException":
         exc = exceptions.NoSuchFrameException
-    elif exception == NoSuchWindowException:
+    elif exception is NoSuchWindowException:
         exc = exceptions.NoSuchWindowException
     elif exception == "NoSuchWindowException":
         exc = exceptions.NoSuchWindowException
-    elif exception == NoSuchFileException:
+    elif exception is NoSuchFileException:
         exc = exceptions.NoSuchFileException
     elif exception == "NoSuchFileException":
         exc = exceptions.NoSuchFileException
-    elif exception == NoSuchOptionException:
+    elif exception is NoSuchOptionException:
         exc = exceptions.NoSuchOptionException
     elif exception == "NoSuchOptionException":
         exc = exceptions.NoSuchOptionException
-    elif type(exception) is str:
+    elif isinstance(exception, str):
         exc = Exception
         message = "%s: %s" % (exception, message)
         return exc, message

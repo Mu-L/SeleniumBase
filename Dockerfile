@@ -1,72 +1,108 @@
 # SeleniumBase Docker Image
-FROM ubuntu:18.04
+FROM ubuntu:22.04
+SHELL ["/bin/bash", "-o", "pipefail", "-c"]
+ENV PYTHONUNBUFFERED=1
+ENV PYTHONIOENCODING=UTF-8
 
-#=======================================
-# Install Python and Basic Python Tools
-#=======================================
-RUN apt-get -o Acquire::Check-Valid-Until=false -o Acquire::Check-Date=false update
-RUN apt-get install -y python3 python3-pip python3-setuptools python3-dev python-distribute
-RUN alias python=python3
-RUN echo "alias python=python3" >> ~/.bashrc
+#======================
+# Locale Configuration
+#======================
+RUN apt-get update
+RUN apt-get install -y --no-install-recommends tzdata locales
+RUN sed -i '/en_US.UTF-8/s/^# //g' /etc/locale.gen && locale-gen
+ENV TZ=America/New_York
+RUN ln -snf /usr/share/zoneinfo/$TZ /etc/localtime && echo $TZ > /etc/timezone
+ENV LANG=en_US.UTF-8
+ENV LANGUAGE=en_US:en
+ENV LC_ALL=en_US.UTF-8
+RUN echo "LC_ALL=en_US.UTF-8" >> /etc/environment
+RUN echo "en_US.UTF-8 UTF-8" >> /etc/locale.gen
+RUN echo "LANG=en_US.UTF-8" > /etc/locale.conf
+RUN locale-gen en_US.UTF-8
+
+#======================
+# Install Common Fonts
+#======================
+RUN apt-get update
+RUN apt-get install -y \
+    fonts-liberation \
+    fonts-liberation2 \
+    fonts-font-awesome \
+    fonts-ubuntu \
+    fonts-terminus \
+    fonts-powerline \
+    fonts-open-sans \
+    fonts-mononoki \
+    fonts-roboto \
+    fonts-lato
+
+#============================
+# Install Linux Dependencies
+#============================
+RUN apt-get update
+RUN apt-get install -y \
+    libasound2 \
+    libatk-bridge2.0-0 \
+    libatk1.0-0 \
+    libatspi2.0-0 \
+    libcups2 \
+    libdbus-1-3 \
+    libdrm2 \
+    libgbm1 \
+    libgtk-3-0 \
+    libnspr4 \
+    libnss3 \
+    libu2f-udev \
+    libvulkan1 \
+    libwayland-client0 \
+    libxcomposite1 \
+    libxdamage1 \
+    libxfixes3 \
+    libxkbcommon0 \
+    libxrandr2
+
+#==========================
+# Install useful utilities
+#==========================
+RUN apt-get update
+RUN apt-get install -y xdg-utils ca-certificates
 
 #=================================
 # Install Bash Command Line Tools
 #=================================
+RUN apt-get update
 RUN apt-get -qy --no-install-recommends install \
+    curl \
     sudo \
     unzip \
-    wget \
-    curl \
-    libxi6 \
-    libgconf-2-4 \
     vim \
-    xvfb \
-  && rm -rf /var/lib/apt/lists/*
+    wget \
+    xvfb
 
 #================
 # Install Chrome
 #================
-RUN curl -sS -o - https://dl-ssl.google.com/linux/linux_signing_key.pub | apt-key add - && \
-    echo "deb http://dl.google.com/linux/chrome/deb/ stable main" >> /etc/apt/sources.list.d/google-chrome.list && \
-    apt-get -yqq update && \
-    apt-get -yqq install google-chrome-stable && \
-    rm -rf /var/lib/apt/lists/*
+RUN apt-get update
+RUN wget https://dl.google.com/linux/direct/google-chrome-stable_current_amd64.deb
+RUN apt-get install -y ./google-chrome-stable_current_amd64.deb
+RUN rm ./google-chrome-stable_current_amd64.deb
 
-#=================
-# Install Firefox
-#=================
-RUN apt-get -qy --no-install-recommends install \
-     $(apt-cache depends firefox | grep Depends | sed "s/.*ends:\ //" | tr '\n' ' ') \
-  && rm -rf /var/lib/apt/lists/* \
-  && cd /tmp \
-  && wget --no-check-certificate -O firefox-esr.tar.bz2 \
-    'https://download.mozilla.org/?product=firefox-esr-latest&os=linux64&lang=en-US' \
-  && tar -xjf firefox-esr.tar.bz2 -C /opt/ \
-  && ln -s /opt/firefox/firefox /usr/bin/firefox \
-  && rm -f /tmp/firefox-esr.tar.bz2
-
-#===========================
-# Configure Virtual Display
-#===========================
-RUN set -e
-RUN echo "Starting X virtual framebuffer (Xvfb) in background..."
-RUN Xvfb -ac :99 -screen 0 1280x1024x16 > /dev/null 2>&1 &
-RUN export DISPLAY=:99
-RUN exec "$@"
-
-#=======================
-# Update Python Version
-#=======================
-RUN apt-get update -y
-RUN apt-get -qy --no-install-recommends install python3.8
+#================
+# Install Python
+#================
+RUN apt-get update
+RUN apt-get install -y python3 python3-pip python3-setuptools python3-dev python3-tk
+RUN alias python=python3
+RUN echo "alias python=python3" >> ~/.bashrc
+RUN apt-get -qy --no-install-recommends install python3.10
 RUN rm /usr/bin/python3
-RUN ln -s python3.8 /usr/bin/python3
+RUN ln -s python3.10 /usr/bin/python3
 
-#=============================================
-# Allow Special Characters in Python Programs
-#=============================================
-RUN export PYTHONIOENCODING=utf8
-RUN echo "export PYTHONIOENCODING=utf8" >> ~/.bashrc
+#===============
+# Cleanup Lists
+#===============
+RUN apt-get clean
+RUN rm -rf /var/lib/apt/lists/*
 
 #=====================
 # Set up SeleniumBase
@@ -77,33 +113,26 @@ COPY examples /SeleniumBase/examples/
 COPY integrations /SeleniumBase/integrations/
 COPY requirements.txt /SeleniumBase/requirements.txt
 COPY setup.py /SeleniumBase/setup.py
+COPY MANIFEST.in /SeleniumBase/MANIFEST.in
+COPY pytest.ini /SeleniumBase/pytest.ini
+COPY setup.cfg /SeleniumBase/setup.cfg
+COPY virtualenv_install.sh /SeleniumBase/virtualenv_install.sh
 RUN find . -name '*.pyc' -delete
-RUN find . -name __pycache__ -delete
-RUN pip3 install --upgrade pip
-RUN pip3 install --upgrade setuptools
-RUN pip3 install --upgrade setuptools-scm
-RUN cd /SeleniumBase && ls && pip3 install -r requirements.txt --upgrade
-RUN cd /SeleniumBase && pip3 install .
+RUN pip install --upgrade pip setuptools wheel
+RUN cd /SeleniumBase && ls && pip install -r requirements.txt --upgrade
+RUN cd /SeleniumBase && pip install .
+RUN pip install pyautogui
 
-#=====================
-# Download WebDrivers
-#=====================
-RUN wget https://github.com/mozilla/geckodriver/releases/download/v0.33.0/geckodriver-v0.33.0-linux64.tar.gz
-RUN tar -xvzf geckodriver-v0.33.0-linux64.tar.gz
-RUN chmod +x geckodriver
-RUN mv geckodriver /usr/local/bin/
-RUN wget https://chromedriver.storage.googleapis.com/72.0.3626.69/chromedriver_linux64.zip
-RUN unzip chromedriver_linux64.zip
-RUN chmod +x chromedriver
-RUN mv chromedriver /usr/local/bin/
+#=======================
+# Download chromedriver
+#=======================
+RUN seleniumbase get chromedriver --path
 
 #==========================================
 # Create entrypoint and grab example tests
 #==========================================
 COPY integrations/docker/docker-entrypoint.sh /
-COPY integrations/docker/run_docker_test_in_firefox.sh /
 COPY integrations/docker/run_docker_test_in_chrome.sh /
 RUN chmod +x *.sh
-COPY integrations/docker/docker_config.cfg /SeleniumBase/examples/
 ENTRYPOINT ["/docker-entrypoint.sh"]
 CMD ["/bin/bash"]

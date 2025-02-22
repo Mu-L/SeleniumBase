@@ -4,6 +4,7 @@ import os
 import pytest
 import sys
 import time
+from contextlib import suppress
 from seleniumbase import config as sb_config
 from seleniumbase.config import settings
 from seleniumbase.core import log_helper
@@ -16,6 +17,7 @@ if sys.version_info >= (3, 11):
     python3_11_or_newer = True
 py311_patch2 = constants.PatchPy311.PATCH
 sys_argv = sys.argv
+full_time = None
 pytest_plugins = ["pytester"]  # Adds the "testdir" fixture
 
 
@@ -59,11 +61,14 @@ def pytest_addoption(parser):
     --binary-location=PATH  (Set path of the Chromium browser binary to use.)
     --driver-version=VER  (Set the chromedriver or uc_driver version to use.)
     --sjw  (Skip JS Waits for readyState to be "complete" or Angular to load.)
+    --wfa  (Wait for AngularJS to be done loading after specific web actions.)
     --pls=PLS  (Set pageLoadStrategy on Chrome: "normal", "eager", or "none".)
-    --headless  (Run tests in headless mode. The default arg on Linux OS.)
-    --headless2  (Use the new headless mode, which supports extensions.)
+    --headless  (The default headless mode. Linux uses this mode by default.)
+    --headless1  (Use Chrome's old headless mode. Fast, but has limitations.)
+    --headless2  (Use Chrome's new headless mode, which supports extensions.)
     --headed  (Run tests in headed/GUI mode on Linux OS, where not default.)
     --xvfb  (Run tests using the Xvfb virtual display server on Linux OS.)
+    --xvfb-metrics=STRING  (Set Xvfb display size on Linux: "Width,Height".)
     --locale=LOCALE_CODE  (Set the Language Locale Code for the web browser.)
     --interval=SECONDS  (The autoplay interval for presentations & tour steps)
     --start-page=URL  (The starting URL for the web browser when tests begin.)
@@ -81,10 +86,12 @@ def pytest_addoption(parser):
     --block-images  (Block images from loading during tests.)
     --do-not-track  (Indicate to websites that you don't want to be tracked.)
     --verify-delay=SECONDS  (The delay before MasterQA verification checks.)
+    --ee / --esc-end  (Lets the user end the current test via the ESC key.)
     --recorder  (Enables the Recorder for turning browser actions into code.)
     --rec-behave  (Same as Recorder Mode, but also generates behave-gherkin.)
     --rec-sleep  (If the Recorder is enabled, also records self.sleep calls.)
     --rec-print  (If the Recorder is enabled, prints output after tests end.)
+    --disable-cookies  (Disable Cookies on websites. Pages might break!)
     --disable-js  (Disable JavaScript on websites. Pages might break!)
     --disable-csp  (Disable the Content Security Policy of websites.)
     --disable-ws  (Disable Web Security on Chromium-based browsers.)
@@ -107,6 +114,7 @@ def pytest_addoption(parser):
     --rcs | --reuse-class-session  (Reuse session for tests in class.)
     --crumbs  (Delete all cookies between tests reusing a session.)
     --disable-beforeunload  (Disable the "beforeunload" event on Chrome.)
+    --window-position=X,Y  (Set the browser's starting window position.)
     --window-size=WIDTH,HEIGHT  (Set the browser's starting window size.)
     --maximize  (Start tests with the browser window maximized.)
     --screenshot  (Save a screenshot at the end of each test.)
@@ -123,10 +131,6 @@ def pytest_addoption(parser):
     cr = ""
     if "linux" not in sys.platform:
         # This will be seen when typing "pytest --help" on the command line.
-        if is_windows and hasattr(colorama, "just_fix_windows_console"):
-            colorama.just_fix_windows_console()
-        else:
-            colorama.init(autoreset=True)
         c1 = colorama.Fore.BLUE + colorama.Back.LIGHTCYAN_EX
         c2 = colorama.Fore.BLUE + colorama.Back.LIGHTGREEN_EX
         c3 = colorama.Fore.MAGENTA + colorama.Back.LIGHTYELLOW_EX
@@ -179,6 +183,20 @@ def pytest_addoption(parser):
         dest="use_safari",
         default=False,
         help="""Shortcut for --browser=safari""",
+    )
+    parser.addoption(
+        "--cft",
+        action="store_true",
+        dest="use_cft",
+        default=False,
+        help="""Shortcut for using `Chrome for Testing`""",
+    )
+    parser.addoption(
+        "--chs",
+        action="store_true",
+        dest="use_chs",
+        default=False,
+        help="""Shortcut for using `Chrome-Headless-Shell`""",
     )
     parser.addoption(
         "--with-selenium",
@@ -356,6 +374,17 @@ def pytest_addoption(parser):
         help="""Skip all calls to wait_for_ready_state_complete()
                 and wait_for_angularjs(), which are part of many
                 SeleniumBase methods for improving reliability.""",
+    )
+    parser.addoption(
+        "--wfa",
+        "--wait_for_angularjs",
+        "--wait-for-angularjs",
+        action="store_true",
+        dest="wait_for_angularjs",
+        default=False,
+        help="""Add waiting for AngularJS. (The default setting
+                was changed to no longer wait for AngularJS to
+                finish loading as an extra JavaScript call.)""",
     )
     parser.addoption(
         "--with-db_reporting",
@@ -641,6 +670,7 @@ def pytest_addoption(parser):
     parser.addoption(
         "--binary_location",
         "--binary-location",
+        "--bl",
         action="store",
         dest="binary_location",
         default=None,
@@ -685,6 +715,15 @@ def pytest_addoption(parser):
                 Default: False on Mac/Windows. True on Linux.""",
     )
     parser.addoption(
+        "--headless1",
+        action="store_true",
+        dest="headless1",
+        default=False,
+        help="""This option activates the old headless mode,
+                which is faster, but has limitations.
+                (May be phased out by Chrome in the future.)""",
+    )
+    parser.addoption(
         "--headless2",
         action="store_true",
         dest="headless2",
@@ -714,6 +753,17 @@ def pytest_addoption(parser):
                 When using "--xvfb", the "--headless" option
                 will no longer be enabled by default on Linux.
                 Default: False. (Linux-ONLY!)""",
+    )
+    parser.addoption(
+        "--xvfb-metrics",
+        "--xvfb_metrics",
+        action="store",
+        dest="xvfb_metrics",
+        default=None,
+        help="""Customize the Xvfb metrics (Width,Height) on Linux.
+                Format: A comma-separated string with the 2 values.
+                Examples: "1920,1080" or "1366,768" or "1024,768".
+                Default: None. (None: "1366,768". Min: "1024,768".)""",
     )
     parser.addoption(
         "--locale_code",
@@ -758,6 +808,16 @@ def pytest_addoption(parser):
         default=True,
         help="""This is used by the BaseCase class to tell apart
                 pytest runs from nosetest runs. (Automatic)""",
+    )
+    parser.addoption(
+        "--all-scripts",
+        "--all_scripts",
+        action="store_true",
+        dest="all_scripts",
+        default=False,
+        help="""Use this to run `SB()`, `DriverContext()` and
+                `Driver()` scripts that are discovered during
+                the pytest collection phase.""",
     )
     parser.addoption(
         "--time_limit",
@@ -886,6 +946,16 @@ def pytest_addoption(parser):
                 before each MasterQA verification pop-up.""",
     )
     parser.addoption(
+        "--esc-end",
+        "--esc_end",
+        "--ee",
+        action="store_true",
+        dest="esc_end",
+        default=False,
+        help="""End the current test early via the ESC key.
+                The test will be marked as skipped.""",
+    )
+    parser.addoption(
         "--recorder",
         "--record",
         "--rec",
@@ -936,6 +1006,15 @@ def pytest_addoption(parser):
                 Warning: Most web pages will stop working!""",
     )
     parser.addoption(
+        "--disable_cookies",
+        "--disable-cookies",
+        action="store_true",
+        dest="disable_cookies",
+        default=False,
+        help="""The option to disable Cookies on web pages.
+                Warning: Several pages may stop working!""",
+    )
+    parser.addoption(
         "--disable_csp",
         "--disable-csp",
         "--no_csp",
@@ -954,6 +1033,7 @@ def pytest_addoption(parser):
     parser.addoption(
         "--disable_ws",
         "--disable-ws",
+        "--dws",
         "--disable-web-security",
         action="store_true",
         dest="disable_ws",
@@ -1197,6 +1277,17 @@ def pytest_addoption(parser):
                 This is already the default Firefox option.""",
     )
     parser.addoption(
+        "--window-position",
+        "--window_position",
+        action="store",
+        dest="window_position",
+        default=None,
+        help="""The option to set the starting window x,y position
+                Format: A comma-separated string with the 2 values.
+                Example: "55,66"
+                Default: None. (Will use default values if None)""",
+    )
+    parser.addoption(
         "--window-size",
         "--window_size",
         action="store",
@@ -1295,6 +1386,7 @@ def pytest_addoption(parser):
 
     arg_join = " ".join(sys_argv)
     sb_config._browser_shortcut = None
+    sb_config._vd_list = []
 
     # SeleniumBase does not support pytest-timeout due to hanging browsers.
     for arg in sys_argv:
@@ -1475,6 +1567,9 @@ def pytest_configure(config):
     sb_config.mobile_emulator = config.getoption("mobile_emulator")
     sb_config.device_metrics = config.getoption("device_metrics")
     sb_config.headless = config.getoption("headless")
+    sb_config.headless1 = config.getoption("headless1")
+    if sb_config.headless1:
+        sb_config.headless = True
     sb_config.headless2 = config.getoption("headless2")
     if sb_config.headless2 and sb_config.browser == "firefox":
         sb_config.headless2 = False  # Only for Chromium browsers
@@ -1483,6 +1578,7 @@ def pytest_configure(config):
         sb_config.headless2 = False  # Only for Chromium browsers
     sb_config.headed = config.getoption("headed")
     sb_config.xvfb = config.getoption("xvfb")
+    sb_config.xvfb_metrics = config.getoption("xvfb_metrics")
     sb_config.locale_code = config.getoption("locale_code")
     sb_config.interval = config.getoption("interval")
     sb_config.start_page = config.getoption("start_page")
@@ -1493,6 +1589,18 @@ def pytest_configure(config):
     sb_config.extension_dir = config.getoption("extension_dir")
     sb_config.disable_features = config.getoption("disable_features")
     sb_config.binary_location = config.getoption("binary_location")
+    if config.getoption("use_cft") and not sb_config.binary_location:
+        sb_config.binary_location = "cft"
+    elif config.getoption("use_chs") and not sb_config.binary_location:
+        sb_config.binary_location = "chs"
+    if (
+        sb_config.binary_location
+        and sb_config.binary_location.lower() == "chs"
+        and sb_config.browser == "chrome"
+    ):
+        sb_config.headless = True
+        sb_config.headless1 = False
+        sb_config.headless2 = False
     sb_config.driver_version = config.getoption("driver_version")
     sb_config.page_load_strategy = config.getoption("page_load_strategy")
     sb_config.with_testing_base = config.getoption("with_testing_base")
@@ -1525,6 +1633,9 @@ def pytest_configure(config):
         settings.ARCHIVE_EXISTING_DOWNLOADS = True
     if config.getoption("skip_js_waits"):
         settings.SKIP_JS_WAITS = True
+    if config.getoption("wait_for_angularjs"):
+        settings.WAIT_FOR_ANGULARJS = True
+    sb_config.all_scripts = config.getoption("all_scripts")
     sb_config._time_limit = config.getoption("time_limit")
     sb_config.time_limit = config.getoption("time_limit")
     sb_config.slow_mode = config.getoption("slow_mode")
@@ -1538,6 +1649,7 @@ def pytest_configure(config):
     sb_config.block_images = config.getoption("block_images")
     sb_config.do_not_track = config.getoption("do_not_track")
     sb_config.verify_delay = config.getoption("verify_delay")
+    sb_config.esc_end = config.getoption("esc_end")
     sb_config.recorder_mode = config.getoption("recorder_mode")
     sb_config.recorder_ext = config.getoption("recorder_mode")  # Again
     sb_config.rec_behave = config.getoption("rec_behave")
@@ -1552,6 +1664,7 @@ def pytest_configure(config):
     elif sb_config.record_sleep and not sb_config.recorder_mode:
         sb_config.recorder_mode = True
         sb_config.recorder_ext = True
+    sb_config.disable_cookies = config.getoption("disable_cookies")
     sb_config.disable_js = config.getoption("disable_js")
     sb_config.disable_csp = config.getoption("disable_csp")
     sb_config.disable_ws = config.getoption("disable_ws")
@@ -1587,6 +1700,7 @@ def pytest_configure(config):
     sb_config.shared_driver = None  # The default driver for session reuse
     sb_config.crumbs = config.getoption("crumbs")
     sb_config._disable_beforeunload = config.getoption("_disable_beforeunload")
+    sb_config.window_position = config.getoption("window_position")
     sb_config.window_size = config.getoption("window_size")
     sb_config.maximize_option = config.getoption("maximize_option")
     sb_config.save_screenshot = config.getoption("save_screenshot")
@@ -1623,6 +1737,7 @@ def pytest_configure(config):
     sb_config._saved_dashboard_pie = None  # Copy of pie chart for html report
     sb_config._dash_final_summary = None  # Dash status to add to html report
     sb_config._html_report_name = None  # The name of the pytest html report
+    sb_config._html_report_copy = None  # The copy of the pytest html report
 
     arg_join = " ".join(sys_argv)
     if (
@@ -1656,6 +1771,7 @@ def pytest_configure(config):
         if sb_config.dashboard:
             if sb_config._html_report_name == "dashboard.html":
                 sb_config._dash_is_html_report = True
+        sb_config._html_report_copy = "last_report.html"
 
     # Recorder Mode does not support multi-threaded / multi-process runs.
     if sb_config.recorder_mode and sb_config._multithreaded:
@@ -1680,18 +1796,22 @@ def pytest_configure(config):
         and not sb_config.headless2
         and not sb_config.xvfb
     ):
-        print(
-            "(Linux uses --headless by default. "
-            "To override, use --headed / --gui. "
-            "For Xvfb mode instead, use --xvfb. "
-            "Or you can hide this info by using "
-            "--headless / --headless2.)"
-        )
-        sb_config.headless = True
+        if not sb_config.undetectable:
+            print(
+                "(Linux uses --headless by default. "
+                "To override, use --headed / --gui. "
+                "For Xvfb mode instead, use --xvfb. "
+                "Or you can hide this info by using "
+                "--headless / --headless2 / --uc.)"
+            )
+            sb_config.headless = True
+        else:
+            sb_config.xvfb = True
 
     # Recorder Mode can still optimize scripts in --headless2 mode.
     if sb_config.recorder_mode and sb_config.headless:
         sb_config.headless = False
+        sb_config.headless1 = False
         sb_config.headless2 = True
 
     if not sb_config.headless and not sb_config.headless2:
@@ -1712,6 +1832,7 @@ def pytest_configure(config):
 
     if sb_config.browser == "safari" and sb_config.headless:
         sb_config.headless = False  # Safari doesn't support headless mode
+        sb_config.headless1 = False
 
     if sb_config.dash_title:
         constants.Dashboard.TITLE = sb_config.dash_title.replace("_", " ")
@@ -1782,10 +1903,8 @@ def _create_dashboard_assets_():
     abs_path = os.path.abspath(".")
     assets_folder = os.path.join(abs_path, "assets")
     if not os.path.exists(assets_folder):
-        try:
+        with suppress(Exception):
             os.makedirs(assets_folder, exist_ok=True)
-        except Exception:
-            pass
     pytest_style_css = os.path.join(assets_folder, "pytest_style.css")
     add_pytest_style_css = True
     if os.path.exists(pytest_style_css):
@@ -1857,20 +1976,14 @@ def pytest_collection_finish(session):
         dash_path = os.path.join(os.getcwd(), "dashboard.html")
         dash_url = "file://" + dash_path.replace("\\", "/")
         star_len = len("Dashboard: ") + len(dash_url)
-        try:
+        with suppress(Exception):
             terminal_size = os.get_terminal_size().columns
             if terminal_size > 30 and star_len > terminal_size:
                 star_len = terminal_size
-        except Exception:
-            pass
         stars = "*" * star_len
         c1 = ""
         cr = ""
         if "linux" not in sys.platform:
-            if is_windows and hasattr(colorama, "just_fix_windows_console"):
-                colorama.just_fix_windows_console()
-            else:
-                colorama.init(autoreset=True)
             c1 = colorama.Fore.BLUE + colorama.Back.LIGHTCYAN_EX
             cr = colorama.Style.RESET_ALL
         if sb_config._multithreaded:
@@ -1904,11 +2017,11 @@ def pytest_runtest_teardown(item):
     (Has zero effect on tests using --reuse-session / --rs)"""
     if "--co" in sys_argv or "--collect-only" in sys_argv:
         return
-    try:
+    with suppress(Exception):
         if hasattr(item, "_testcase") or hasattr(sb_config, "_sb_pdb_driver"):
             if hasattr(item, "_testcase"):
                 self = item._testcase
-                try:
+                with suppress(Exception):
                     if (
                         hasattr(self, "driver")
                         and self.driver
@@ -1916,26 +2029,29 @@ def pytest_runtest_teardown(item):
                     ):
                         if not (is_windows or self.driver.service.process):
                             self.driver.quit()
-                except Exception:
-                    pass
             elif (
                 hasattr(sb_config, "_sb_pdb_driver")
                 and sb_config._sb_pdb_driver
             ):
-                try:
+                with suppress(Exception):
                     if (
                         not is_windows
                         or sb_config._sb_pdb_driver.service.process
                     ):
                         sb_config._sb_pdb_driver.quit()
                         sb_config._sb_pdb_driver = None
-                except Exception:
-                    pass
-        try:
+        with suppress(Exception):
             if (
                 hasattr(self, "_xvfb_display")
                 and self._xvfb_display
                 and hasattr(self._xvfb_display, "stop")
+                and (
+                    not hasattr(sb_config, "reuse_session")
+                    or (
+                        hasattr(sb_config, "reuse_session")
+                        and not sb_config.reuse_session
+                    )
+                )
             ):
                 self.headless_active = False
                 sb_config.headless_active = False
@@ -1945,13 +2061,16 @@ def pytest_runtest_teardown(item):
                 hasattr(sb_config, "_virtual_display")
                 and sb_config._virtual_display
                 and hasattr(sb_config._virtual_display, "stop")
+                and (
+                    not hasattr(sb_config, "reuse_session")
+                    or (
+                        hasattr(sb_config, "reuse_session")
+                        and not sb_config.reuse_session
+                    )
+                )
             ):
                 sb_config._virtual_display.stop()
                 sb_config._virtual_display = None
-        except Exception:
-            pass
-    except Exception:
-        pass
     if (
         (
             sb_config._has_exception
@@ -1964,11 +2083,15 @@ def pytest_runtest_teardown(item):
         if (
             "-s" in sys_argv
             or "--capture=no" in sys_argv
+            or "--capture=tee-sys" in sys_argv
             or (
                 hasattr(sb_config.pytest_config, "invocation_params")
                 and (
                     "-s" in sb_config.pytest_config.invocation_params.args
                     or "--capture=no" in (
+                        sb_config.pytest_config.invocation_params.args
+                    )
+                    or "--capture=tee-sys" in (
                         sb_config.pytest_config.invocation_params.args
                     )
                 )
@@ -1977,6 +2100,10 @@ def pytest_runtest_teardown(item):
             print("\n=> Fail Page: %s" % sb_config._fail_page)
         else:
             sys.stdout.write("\n=> Fail Page: %s\n" % sb_config._fail_page)
+
+
+def pytest_html_duration_format(duration):
+    return "%.2f" % duration
 
 
 def pytest_sessionfinish(session):
@@ -2029,9 +2156,11 @@ def pytest_terminal_summary(terminalreporter):
         )
 
 
-def _perform_pytest_unconfigure_():
+def _perform_pytest_unconfigure_(config):
     from seleniumbase.core import proxy_helper
 
+    reporter = config.pluginmanager.get_plugin("terminalreporter")
+    duration = time.time() - reporter._sessionstarttime
     if (
         (hasattr(sb_config, "multi_proxy") and not sb_config.multi_proxy)
         or not hasattr(sb_config, "multi_proxy")
@@ -2052,13 +2181,120 @@ def _perform_pytest_unconfigure_():
             except Exception:
                 pass
         sb_config.shared_driver = None
+        with suppress(Exception):
+            if (
+                hasattr(sb_config, "_virtual_display")
+                and sb_config._virtual_display
+                and hasattr(sb_config._virtual_display, "stop")
+            ):
+                sb_config._virtual_display.stop()
+                sb_config._virtual_display = None
+                sb_config.headless_active = False
+            if hasattr(sb_config, "_vd_list") and sb_config._vd_list:
+                if isinstance(sb_config._vd_list, list):
+                    for display in sb_config._vd_list:
+                        if display:
+                            with suppress(Exception):
+                                display.stop()
     if hasattr(sb_config, "log_path") and sb_config.item_count > 0:
         log_helper.archive_logs_if_set(
             constants.Logs.LATEST + "/", sb_config.archive_logs
         )
+        if os.path.exists("./assets/"):  # Used by pytest-html reports
+            with suppress(Exception):
+                shared_utils.make_dir_files_writable("./assets/")
     log_helper.clear_empty_logs()
     # Dashboard post-processing: Disable time-based refresh and stamp complete
     if not hasattr(sb_config, "dashboard") or not sb_config.dashboard:
+        html_report_path = None
+        the_html_r = None
+        abs_path = os.path.abspath(".")
+        if sb_config._html_report_name:
+            html_report_path = os.path.join(
+                abs_path, sb_config._html_report_name
+            )
+        if sb_config._html_report_copy:
+            html_report_path_copy = os.path.join(
+                abs_path, sb_config._html_report_copy
+            )
+        if (
+            sb_config._using_html_report
+            and html_report_path
+            and os.path.exists(html_report_path)
+        ):
+            with open(html_report_path, "r", encoding="utf-8") as f:
+                the_html_r = f.read()
+            assets_chunk = "if (assets.length === 1) {"
+            remove_media = "container.classList.remove('media-container')"
+            rm_n_left = '<div class="media-container__nav--left"><</div>'
+            rm_n_right = '<div class="media-container__nav--right">></div>'
+            the_html_r = the_html_r.replace(
+                assets_chunk,
+                "%s %s" % (assets_chunk, remove_media),
+            )
+            the_html_r = the_html_r.replace(rm_n_left, "")
+            the_html_r = the_html_r.replace(rm_n_right, "")
+            the_html_r = the_html_r.replace("<ul>$", "$")
+            the_html_r = the_html_r.replace("}<ul>", "}")
+            the_html_r = the_html_r.replace(
+                "<li>${val}</li>", "${val},&nbsp;&nbsp;"
+            )
+            the_html_r = the_html_r.replace(
+                "<div>${value}</div>", "<span>${value}</span"
+            )
+            ph_link = '<a href="https://pypi.python.org/pypi/pytest-html">'
+            sb_link = (
+                '<a href="https://github.com/seleniumbase/SeleniumBase">'
+                'SeleniumBase</a>'
+            )
+            the_html_r = the_html_r.replace(
+                ph_link, "%s and %s" % (sb_link, ph_link)
+            )
+            the_html_r = the_html_r.replace(
+                "findAll('.collapsible", "//findAll('.collapsible"
+            )
+            the_html_r = the_html_r.replace(
+                "mediaName.innerText", "//mediaName.innerText"
+            )
+            the_html_r = the_html_r.replace(
+                "counter.innerText", "//counter.innerText"
+            )
+            run_count = '<p class="run-count">'
+            run_c_loc = the_html_r.find(run_count)
+            rc_loc = the_html_r.find(" took ", run_c_loc)
+            end_rc_loc = the_html_r.find(".</p>", rc_loc)
+            run_time = "%.2f" % duration
+            new_time = " ran in %s seconds" % run_time
+            the_html_r = (
+                the_html_r[:rc_loc] + new_time + the_html_r[end_rc_loc:]
+            )
+            with open(html_report_path, "w", encoding="utf-8") as f:
+                f.write(the_html_r)  # Finalize the HTML report
+            with suppress(Exception):
+                shared_utils.make_writable(html_report_path)
+            with open(html_report_path_copy, "w", encoding="utf-8") as f:
+                f.write(the_html_r)  # Finalize the HTML report copy
+            with suppress(Exception):
+                shared_utils.make_writable(html_report_path_copy)
+            assets_style = "./assets/style.css"
+            if os.path.exists(assets_style):
+                html_style = None
+                with open(assets_style, "r", encoding="utf-8") as f:
+                    html_style = f.read()
+                if html_style:
+                    html_style = html_style.replace("top: -50px;", "top: 2px;")
+                    html_style = html_style.replace("+ 50px)", "+ 40px)")
+                    html_style = html_style.replace("ht: 240px;", "ht: 228px;")
+                    html_style = html_style.replace(
+                        "- 80px);", "- 80px);\n  margin-bottom: -42px;"
+                    )
+                    html_style = html_style.replace(".collapsible", ".oldc")
+                    html_style = html_style.replace(" (hide details)", "")
+                    html_style = html_style.replace(" (show details)", "")
+                with open(assets_style, "w", encoding="utf-8") as f:
+                    f.write(html_style)
+                with suppress(Exception):
+                    shared_utils.make_writable(assets_style)
         # Done with "pytest_unconfigure" unless using the Dashboard
         return
     stamp = ""
@@ -2140,11 +2376,36 @@ def _perform_pytest_unconfigure_():
                 )
             with open(dashboard_path, "w", encoding="utf-8") as f:
                 f.write(the_html_d)  # Finalize the dashboard
+            with suppress(Exception):
+                shared_utils.make_writable(dashboard_path)
+            assets_style = "./assets/style.css"
+            if os.path.exists(assets_style):
+                html_style = None
+                with open(assets_style, "r", encoding="utf-8") as f:
+                    html_style = f.read()
+                if html_style:
+                    html_style = html_style.replace("top: -50px;", "top: 2px;")
+                    html_style = html_style.replace("+ 50px)", "+ 40px)")
+                    html_style = html_style.replace("ht: 240px;", "ht: 228px;")
+                    html_style = html_style.replace(
+                        "- 80px);", "- 80px);\n  margin-bottom: -42px;"
+                    )
+                    html_style = html_style.replace(".collapsible", ".oldc")
+                    html_style = html_style.replace(" (hide details)", "")
+                    html_style = html_style.replace(" (show details)", "")
+                with open(assets_style, "w", encoding="utf-8") as f:
+                    f.write(html_style)
+                with suppress(Exception):
+                    shared_utils.make_writable(assets_style)
             # Part 2: Appending a pytest html report with dashboard data
             html_report_path = None
             if sb_config._html_report_name:
                 html_report_path = os.path.join(
                     abs_path, sb_config._html_report_name
+                )
+            if sb_config._html_report_copy:
+                html_report_path_copy = os.path.join(
+                    abs_path, sb_config._html_report_copy
                 )
             if (
                 sb_config._using_html_report
@@ -2163,7 +2424,7 @@ def _perform_pytest_unconfigure_():
                     elif "\\" in h_r_name and h_r_name.endswith(".html"):
                         h_r_name = h_r_name.split("\\")[-1]
                     the_html_r = the_html_r.replace(
-                        "<h1>%s</h1>" % h_r_name,
+                        '<h1 id="title">%s</h1>' % h_r_name,
                         sb_config._saved_dashboard_pie,
                     )
                     the_html_r = the_html_r.replace(
@@ -2173,8 +2434,58 @@ def _perform_pytest_unconfigure_():
                     )
                     if sb_config._dash_final_summary:
                         the_html_r += sb_config._dash_final_summary
+                assets_chunk = "if (assets.length === 1) {"
+                remove_media = "container.classList.remove('media-container')"
+                rm_n_left = '<div class="media-container__nav--left"><</div>'
+                rm_n_right = '<div class="media-container__nav--right">></div>'
+                the_html_r = the_html_r.replace(
+                    assets_chunk,
+                    "%s %s" % (assets_chunk, remove_media),
+                )
+                the_html_r = the_html_r.replace(rm_n_left, "")
+                the_html_r = the_html_r.replace(rm_n_right, "")
+                the_html_r = the_html_r.replace("<ul>$", "$")
+                the_html_r = the_html_r.replace("}<ul>", "}")
+                the_html_r = the_html_r.replace(
+                    "<li>${val}</li>", "${val},&nbsp;&nbsp;"
+                )
+                the_html_r = the_html_r.replace(
+                    "<div>${value}</div>", "<span>${value}</span"
+                )
+                ph_link = '<a href="https://pypi.python.org/pypi/pytest-html">'
+                sb_link = (
+                    '<a href="https://github.com/seleniumbase/SeleniumBase">'
+                    'SeleniumBase</a>'
+                )
+                the_html_r = the_html_r.replace(
+                    ph_link, "%s and %s" % (sb_link, ph_link)
+                )
+                the_html_r = the_html_r.replace(
+                    "findAll('.collapsible", "//findAll('.collapsible"
+                )
+                the_html_r = the_html_r.replace(
+                    "mediaName.innerText", "//mediaName.innerText"
+                )
+                the_html_r = the_html_r.replace(
+                    "counter.innerText", "//counter.innerText"
+                )
+                run_count = '<p class="run-count">'
+                run_c_loc = the_html_r.find(run_count)
+                rc_loc = the_html_r.find(" took ", run_c_loc)
+                end_rc_loc = the_html_r.find(".</p>", rc_loc)
+                run_time = "%.2f" % duration
+                new_time = " ran in %s seconds" % run_time
+                the_html_r = (
+                    the_html_r[:rc_loc] + new_time + the_html_r[end_rc_loc:]
+                )
                 with open(html_report_path, "w", encoding="utf-8") as f:
                     f.write(the_html_r)  # Finalize the HTML report
+                with suppress(Exception):
+                    shared_utils.make_writable(html_report_path)
+                with open(html_report_path_copy, "w", encoding="utf-8") as f:
+                    f.write(the_html_r)  # Finalize the HTML report copy
+                with suppress(Exception):
+                    shared_utils.make_writable(html_report_path_copy)
     except KeyboardInterrupt:
         pass
     except Exception:
@@ -2207,19 +2518,19 @@ def pytest_unconfigure(config):
                         with open(dashboard_path, "w", encoding="utf-8") as f:
                             f.write(sb_config._dash_html)
                     # Dashboard Multithreaded
-                    _perform_pytest_unconfigure_()
+                    _perform_pytest_unconfigure_(config)
                     return
             else:
                 # Dash Lock is missing
-                _perform_pytest_unconfigure_()
+                _perform_pytest_unconfigure_(config)
                 return
         with dash_lock:
             # Multi-threaded tests
-            _perform_pytest_unconfigure_()
+            _perform_pytest_unconfigure_(config)
             return
     else:
         # Single-threaded tests
-        _perform_pytest_unconfigure_()
+        _perform_pytest_unconfigure_(config)
         return
 
 
@@ -2332,7 +2643,7 @@ def pytest_runtest_makereport(item, call):
                     )
                 if log_path:
                     sb_config._log_fail_data()
-        try:
+        with suppress(Exception):
             extra_report = None
             if hasattr(item, "_testcase"):
                 extra_report = item._testcase._html_report_extra
@@ -2368,7 +2679,7 @@ def pytest_runtest_makereport(item, call):
                 return
             extra = getattr(report, "extra", [])
             if len(extra_report) > 1 and extra_report[1]["content"]:
-                report.extra = extra + extra_report
+                report.extras = extra + extra_report
             if sb_config._dash_is_html_report:
                 # If the Dashboard URL is the same as the HTML Report URL,
                 # have the html report refresh back to a dashboard on update.
@@ -2376,6 +2687,4 @@ def pytest_runtest_makereport(item, call):
                     '<script type="text/javascript" src="%s">'
                     "</script>" % constants.Dashboard.LIVE_JS
                 )
-                report.extra.append(pytest_html.extras.html(refresh_updates))
-        except Exception:
-            pass
+                report.extras.append(pytest_html.extras.html(refresh_updates))

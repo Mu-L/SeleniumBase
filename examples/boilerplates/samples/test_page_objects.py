@@ -1,6 +1,6 @@
 """An example using the Classic Page Object Model."""
 from seleniumbase import BaseCase
-BaseCase.main(__name__, __file__)
+BaseCase.main(__name__, __file__, "--uc")
 
 
 class GooglePage:
@@ -36,7 +36,7 @@ class MyTests(BaseCase):
     def test_page_objects(self):
         if self.headless and self._multithreaded:
             self.open_if_not_url("about:blank")
-            print("Skipping test in headless multi-threaded mode.")
+            print("\n  Skipping test in headless multi-threaded mode.")
             self.skip("Skipping test in headless multi-threaded mode.")
         search_term = "SeleniumBase.io Docs"
         expected_text = "SeleniumBase"
